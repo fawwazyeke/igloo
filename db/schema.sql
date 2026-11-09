@@ -74,4 +74,17 @@ CREATE TABLE IF NOT EXISTS rate_hits (
 CREATE INDEX IF NOT EXISTS rate_hits_key_at ON rate_hits (key, at);
 CREATE INDEX IF NOT EXISTS rate_hits_at ON rate_hits (at);
 
+CREATE TABLE IF NOT EXISTS project_files (
+  id uuid PRIMARY KEY,
+  project_id uuid NOT NULL REFERENCES projects ON DELETE CASCADE,
+  task_id uuid REFERENCES tasks ON DELETE SET NULL,
+  member_id uuid NOT NULL REFERENCES members,
+  name text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('text', 'pdf', 'slides', 'document')),
+  size integer NOT NULL CHECK (size BETWEEN 1 AND 2097152),
+  created_at timestamptz NOT NULL,
+  data text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS project_files_project_created ON project_files (project_id, created_at);
+
 COMMIT;

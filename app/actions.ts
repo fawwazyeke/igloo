@@ -71,6 +71,14 @@ export async function reassign(slug: string, taskId: string, memberId: string): 
 export async function addTask(slug: string, title: string, phase: Phase): Promise<Result> {
   return asMember(slug, (me) => store.addTask(me, str(title), PHASES.includes(phase) ? phase : "build"));
 }
+export async function shareFile(_: Result, form: FormData): Promise<Result> {
+  return asMember(form.get("slug"), async (me) => {
+    const file = form.get("file");
+    if (!(file instanceof File)) return { error: "Choose a file" };
+    if (!(await store.rateLimit(`upload:${me.id}`, 12, 600_000))) return { error: "Too many uploads. Try again shortly." };
+    return store.shareFile(me, file, str(form.get("task")).slice(0, 36));
+  });
+}
 export async function proposeDecision(slug: string, text: string): Promise<Result> {
   return asMember(slug, (me) => store.proposeDecision(me, str(text)));
 }

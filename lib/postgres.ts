@@ -1,11 +1,14 @@
 import { Pool, type PoolClient } from "pg";
-import type { Activity, Decision, Member, Note, Project, Task } from "./core";
+import type { Activity, Decision, Member, Note, Project, ProjectFile, Task } from "./core";
+
+export type StoredFile = ProjectFile & { data?: string };
+const fileColumns = "id, project_id, task_id, member_id, name, kind, size, created_at";
 
 export type DB = {
   projects: Project[]; members: Member[]; tasks: Task[];
-  decisions: Decision[]; notes: Note[]; activity: Activity[]; seq: number;
+  decisions: Decision[]; notes: Note[]; activity: Activity[]; project_files: StoredFile[]; seq: number;
 };
-export const empty = (): DB => ({ projects: [], members: [], tasks: [], decisions: [], notes: [], activity: [], seq: 0 });
+export const empty = (): DB => ({ projects: [], members: [], tasks: [], decisions: [], notes: [], activity: [], project_files: [], seq: 0 });
 
 export type Selector = { slug: string } | { projectId: string } | { agentToken: string };
 let pool: Pool | undefined;
@@ -35,6 +38,7 @@ const tables = {
   tasks: "id, project_id, title, phase, position, due_date, owner_member_id, status, claimed_at, done_at",
   decisions: "id, project_id, text, created_by, approved_by, created_at",
   notes: "id, project_id, text, source_member_id, created_at",
+  project_files: fileColumns,
 } as const;
 
 export async function loadSession(slug: string, token: string): Promise<Member | null> {
@@ -69,7 +73,10 @@ export async function loadProject(by: Selector, client: Pool | PoolClient = post
       ) n ORDER BY n.created_at, n.id) AS notes,
       ARRAY(SELECT row_to_json(a) FROM (
         SELECT * FROM activity WHERE project_id = p.id ORDER BY id DESC LIMIT 60
-      ) a ORDER BY a.id) AS activity
+      ) a ORDER BY a.id) AS activity,
+      ARRAY(SELECT row_to_json(f) FROM (
+        SELECT ${fileColumns} FROM project_files WHERE project_id = p.id ORDER BY created_at, id
+      ) f) AS project_files
     FROM projects p WHERE ${where}
   `, [value]);
   return rows[0] ? { ...rows[0], seq: rows[0].activity.at(-1)?.id ?? 0 } : empty();
@@ -89,9 +96,10 @@ async function saveProject(client: PoolClient, before: DB, after: DB) {
       const previous = prior.get(row.id);
       const payload = JSON.stringify(row);
       if (!previous) {
+        const insertColumns = table === "project_files" ? `${columns}, data` : columns;
         await client.query(`
-          INSERT INTO ${table} (${columns})
-          SELECT ${columns} FROM jsonb_populate_record(NULL::${table}, $1)
+          INSERT INTO ${table} (${insertColumns})
+          SELECT ${insertColumns} FROM jsonb_populate_record(NULL::${table}, $1)
         `, [payload]);
       } else if (JSON.stringify(previous) !== payload) {
         const changed = columns.split(", ").slice(1).join(", ");
@@ -115,6 +123,14 @@ async function saveProject(client: PoolClient, before: DB, after: DB) {
       ORDER BY id
     `, [JSON.stringify(entries)]);
   }
+}
+
+export async function loadFileBytes(projectId: string, id: string) {
+  const { rows } = await postgres().query<{ file: ProjectFile & { data: string } }>(
+    "SELECT row_to_json(f) AS file FROM project_files f WHERE project_id = $1 AND id = $2",
+    [projectId, id],
+  );
+  return rows[0]?.file;
 }
 
 export async function projectTransaction<T>(by: Selector, apply: (db: DB) => T): Promise<T> {

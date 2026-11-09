@@ -4,8 +4,8 @@ import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useT
 import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
 import {
-  AI_TOOLS, PHASES, buildDigest, dueLabel, fairness, matchTask, parseUpdates, timeAgo,
-  type Activity, type Decision, type MemberPublic, type Phase, type Result, type Status, type Task,
+  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, PHASES, buildDigest, dueLabel, fairness, fileUrl, matchTask, parseUpdates, timeAgo,
+  type Activity, type Decision, type MemberPublic, type Phase, type ProjectFile, type Result, type Status, type Task,
 } from "@/lib/core";
 
 const STATUS_LABEL: Record<Status, string> = { todo: "To do", doing: "In progress", done: "Done" };
@@ -69,11 +69,12 @@ export type AppData = {
   tasks: Task[];
   decisions: Decision[];
   activity: Activity[];
+  files: ProjectFile[];
 };
-type Tab = "tasks" | "ai" | "activity" | "decisions";
+type Tab = "tasks" | "ai" | "activity" | "decisions" | "files";
 type Toast = { id: number; text: string; tone: "ok" | "bad" | "info" };
 type Actions = ReturnType<typeof useActions>;
-type Ctx = { d: AppData; byId: Map<string, MemberPublic>; a: Actions };
+type Ctx = { d: AppData; byId: Map<string, MemberPublic>; a: Actions; openFile: (id: string) => void };
 
 function useActions(d: AppData, toast: (t: string, tone?: Toast["tone"]) => void) {
   const [, start] = useTransition();
@@ -97,6 +98,7 @@ export function App(d: AppData) {
   const router = useRouter();
   const [view, setView] = useState<"board" | "list">("board");
   const [tab, setTab] = useState<Tab>("tasks");
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [palette, setPalette] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const byId = useMemo(() => new Map(d.members.map((m) => [m.id, m])), [d.members]);
@@ -137,7 +139,9 @@ export function App(d: AppData) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const ctx = { d, byId, a };
+  const openFile = (id: string) => { setSelectedFile(id); setTab("files"); };
+  const openFiles = () => { setSelectedFile(null); setTab("files"); };
+  const ctx = { d, byId, a, openFile };
   const done = d.tasks.filter((t) => t.status === "done").length;
   const waiting = d.decisions.some((x) => !x.approved_by);
 
@@ -154,6 +158,7 @@ export function App(d: AppData) {
             {(["board", "list"] as const).map((v) => <button key={v} className={view === v ? "on" : ""} aria-pressed={view === v} onClick={() => setView(v)}>{v === "board" ? "Board" : "List"}</button>)}
           </div>
           <button className="ghost" onClick={a.copyInvite}>Invite</button>
+          <button className="ghost" onClick={openFiles}>Add file</button>
           <button className="btn" onClick={a.copyDigest}>Copy update for group chat</button>
           <button className="ghost" style={{ color: "var(--muted)" }} onClick={() => setPalette(true)} title="Quick actions (N or ⌘K)">Quick actions</button>
           <div className="me">
@@ -168,7 +173,7 @@ export function App(d: AppData) {
 
       <div className="body">
         <main>
-          {view === "board" ? <Board d={d} /> : (
+          {view === "board" ? <Board d={d} openFile={openFile} /> : (
             <div className="list dots">
               <div className="stack">
                 <div className="card"><Fairness members={d.members} tasks={d.tasks} /></div>
@@ -179,7 +184,7 @@ export function App(d: AppData) {
         </main>
         <aside>
           <nav role="tablist">
-            {([["tasks", "Tasks"], ["ai", "Your AI"], ["activity", "What's new"], ["decisions", "Decisions"]] as const).map(([k, label]) => (
+            {([["tasks", "Tasks"], ["files", "Files"], ["ai", "Your AI"], ["activity", "What's new"], ["decisions", "Decisions"]] as const).map(([k, label]) => (
               <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
                 {label}{k === "decisions" && waiting && <span className="badge" aria-label="waiting for a yes">•</span>}
               </button>
@@ -187,6 +192,7 @@ export function App(d: AppData) {
           </nav>
           <div className="pane">
             {tab === "tasks" && <TaskList {...ctx} />}
+            {tab === "files" && <FilesPanel d={d} byId={byId} selected={selectedFile} openFile={openFile} back={openFiles} />}
             {tab === "ai" && <AiPanel d={d} a={a} toast={toast} />}
             {tab === "activity" && <Feed {...ctx} />}
             {tab === "decisions" && <Decisions {...ctx} />}
@@ -204,9 +210,11 @@ export function App(d: AppData) {
 
 // ---------- Board ----------
 // A fixed stage, scaled to fit. With 4 members it is the sample's layout (1100 x 790); more members widen the ring.
-function Board({ d }: { d: AppData }) {
+function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) {
   const n = d.members.length, grow = Math.max(1, n / 6);
   const rx = 425 * grow, ry = 320 * grow, W = 2 * rx + 250, H = 2 * ry + 150, cx = W / 2, cy = H / 2;
+  const visibleFiles = d.files.slice(-3).reverse();
+  const stageHeight = H + (visibleFiles.length ? 110 : 0);
   const nodes = d.members.map((m, i) => {
     const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
     const mine = d.tasks.filter((t) => t.owner_member_id === m.id);
@@ -218,19 +226,20 @@ function Board({ d }: { d: AppData }) {
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => setScale(Math.min(el.clientWidth / (W + 40), el.clientHeight / (H + 40), 1));
+    const fit = () => setScale(Math.min(el.clientWidth / (W + 40), el.clientHeight / (stageHeight + 40), 1));
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     fit();
     return () => ro.disconnect();
-  }, [W, H]);
+  }, [W, stageHeight]);
   const locked = d.decisions.filter((x) => x.approved_by).length;
 
   return (
     <div ref={box} className="board dots">
-      <div className="stage" style={{ width: W, height: H, transform: `scale(${scale}) translate(${-cx}px, ${-cy}px)`, visibility: scale ? "visible" : "hidden" }}>
-        <svg width={W} height={H} aria-hidden>
+      <div className="stage" style={{ width: W, height: stageHeight, transform: `scale(${scale}) translate(${-cx}px, ${-stageHeight / 2}px)`, visibility: scale ? "visible" : "hidden" }}>
+        <svg width={W} height={stageHeight} aria-hidden>
           {nodes.map((p) => <line key={p.m.id} x1={cx} y1={cy} x2={p.x} y2={p.y} strokeWidth={1.5} stroke={p.active ? p.m.color : "#ebe4d8"} className={p.active ? "flow" : undefined} />)}
+          {visibleFiles.map((f, i) => <line key={f.id} x1={cx} y1={cy} x2={cx + (i - (visibleFiles.length - 1) / 2) * 285} y2={H + 50} strokeWidth={1.5} stroke="#eab694" />)}
         </svg>
         <div className="node brain" style={{ left: cx, top: cy }}>
           <div className="eyebrow">Team project</div>
@@ -269,9 +278,82 @@ function Board({ d }: { d: AppData }) {
             </div>
           );
         })}
+        {visibleFiles.map((f, i) => (
+          <button key={f.id} className="node file-node" style={{ left: cx + (i - (visibleFiles.length - 1) / 2) * 285, top: H + 50 }} onClick={() => openFile(f.id)}>
+            <span className="eyebrow">📎 {FILE_LABEL[f.kind]}</span>
+            <strong>{f.name}</strong>
+            <span className="small">{d.tasks.find((task) => task.id === f.task_id)?.title ?? "Project file"}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
+}
+
+function FilesPanel({ d, byId, selected, openFile, back }: {
+  d: AppData; byId: Map<string, MemberPublic>; selected: string | null; openFile: (id: string) => void; back: () => void;
+}) {
+  const [state, action, pending] = useActionState(A.shareFile, {});
+  const file = d.files.find((entry) => entry.id === selected);
+  const titleOf = (entry: ProjectFile) => d.tasks.find((task) => task.id === entry.task_id)?.title ?? "Project file";
+  if (file) return (
+    <section className="sec">
+      <button className="linkbtn" onClick={back}>← All files</button>
+      <div className="file-detail">
+        <div className="eyebrow">{FILE_LABEL[file.kind]} · {titleOf(file)}</div>
+        <h2 className="title">{file.name}</h2>
+        <div className="small">Shared by {byId.get(file.member_id)?.name ?? "A teammate"} · {Math.max(1, Math.round(file.size / 1024))} KB</div>
+        <div className="wrap-row file-actions">
+          <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>
+          {file.kind === "pdf" && <a className="ghost" href={fileUrl(file.id, d.slug) + "&preview=1"} target="_blank" rel="noreferrer">Open PDF</a>}
+        </div>
+        {file.kind === "text" && <FileText key={file.id} url={fileUrl(file.id, d.slug) + "&preview=1"} />}
+        {(file.kind === "slides" || file.kind === "document") && <p className="small">Download to open it, or share a PDF copy for browser preview.</p>}
+      </div>
+    </section>
+  );
+  return (
+    <section className="sec">
+      <div className="sec-t">Shared files</div>
+      {d.files.length === 0 && <p className="small">Share a prototype, source file, deck or reference with your team.</p>}
+      <form className="file-form" action={action}>
+        <input type="hidden" name="slug" value={d.slug} />
+        <label className="label">Add a file<input className="input" type="file" name="file" accept={FILE_ACCEPT} required onChange={(event) => {
+          const input = event.currentTarget;
+          const file = input.files?.[0];
+          input.setCustomValidity(file && file.size > FILE_LIMIT ? "Choose a file up to 2 MB" : "");
+        }} /></label>
+        <label className="label">Link to a task<select className="input" name="task" defaultValue="">
+          <option value="">Project file (no task)</option>
+          {d.tasks.map((task) => <option value={task.id} key={task.id}>{task.title}</option>)}
+        </select></label>
+        <p className="small">Source and HTML, PDF, PowerPoint and Word · up to 2 MB each</p>
+        {state.error && <p className="err" role="alert">{state.error}</p>}
+        {state.ok && <p className="small" role="status">{state.ok}</p>}
+        <button className="btn" disabled={pending}>{pending ? "Sharing…" : "Share file"}</button>
+      </form>
+      {d.files.slice().reverse().map((entry) => (
+        <button className="task file-row" key={entry.id} onClick={() => openFile(entry.id)}>
+          <strong>{entry.name}</strong><span className="small">{FILE_LABEL[entry.kind]} · {titleOf(entry)} · {byId.get(entry.member_id)?.name ?? "A teammate"}</span>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function FileText({ url }: { url: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(url, { signal: controller.signal }).then((response) => {
+      if (!response.ok) throw new Error("Preview unavailable");
+      return response.text();
+    }).then(setText).catch(() => { if (!controller.signal.aborted) setFailed(true); });
+    return () => controller.abort();
+  }, [url]);
+  return failed ? <p className="small">Preview unavailable</p> :
+    text === null ? <p className="small">Loading preview…</p> : <pre className="file-source"><code>{text}</code></pre>;
 }
 
 // ---------- Fairness ----------
@@ -293,7 +375,7 @@ function Fairness({ members, tasks }: { members: MemberPublic[]; tasks: Task[] }
 }
 
 // ---------- Tasks ----------
-function TaskList({ d, byId, a }: Ctx) {
+function TaskList({ d, byId, a, openFile }: Ctx) {
   const [title, setTitle] = useState("");
   const [phase, setPhase] = useState<Phase>("build");
   return (
@@ -321,6 +403,11 @@ function TaskList({ d, byId, a }: Ctx) {
                       {d.members.filter((m) => m.id !== t.owner_member_id).map((m) => <option key={m.id} value={m.id}>{m.id === d.me.id ? "Me" : m.name}</option>)}
                     </select>
                   </div>
+                  {d.files.some((file) => file.task_id === t.id) && <div className="wrap-row task-files">
+                    {d.files.filter((file) => file.task_id === t.id).map((file) => (
+                      <button className="ghost sm" key={file.id} onClick={() => openFile(file.id)}>📎 {file.name}</button>
+                    ))}
+                  </div>}
                 </div>
               );
             })}
@@ -371,7 +458,7 @@ function AiPanel({ d, a, toast }: { d: AppData; a: Actions; toast: (t: string, t
     <div>
       <div className="sec">
         <div className="sec-t">1. Tell your AI about the project</div>
-        <p className="small" style={{ margin: "0 0 12px" }}>Your private link tells your AI the brief, your tasks, who is doing what, and what the team agreed.</p>
+        <p className="small" style={{ margin: "0 0 12px" }}>Your private link tells your AI the brief, your tasks, shared files, and what the team agreed.</p>
         <div className="private">🔒 Private link for {d.me.name}</div>
         <div className="wrap-row">
           <button className="btn" onClick={a.copyAgent}>Copy link</button>

@@ -109,6 +109,23 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .chip.doing { background: rgb(212 137 26 / .15); color: var(--warn); }
 .chip.done { background: rgb(47 158 107 / .15); color: var(--ok); }
 
+/* Workspace files */
+.file-node { width: 245px; padding: 12px 14px; text-align: left; border-color: #efae8e; box-shadow: var(--shadow-soft); }
+.file-node > span, .file-node > strong { display: block; }
+.file-node strong, .file-node .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-node:hover, .file-row:hover { background: var(--accent-soft); }
+.file-row { display: block; width: 100%; text-align: left; overflow-wrap: anywhere; }
+.file-row strong, .file-row .small { display: block; }
+.file-form { display: grid; gap: 9px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+.file-form .label, .file-form p { margin: 0; }
+.file-form .input { display: block; margin-top: 5px; }
+.file-form .btn { justify-self: start; }
+.file-detail { margin-top: 12px; }
+.file-detail h2 { margin: 0 0 4px; overflow-wrap: anywhere; }
+.file-actions, .task-files { margin-top: 10px; }
+.task-files button { max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+.file-source { background: var(--soft); border-radius: 12px; padding: 12px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 400px; overflow-y: auto; }
+
 /* Fairness */
 .fair-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .fair-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }

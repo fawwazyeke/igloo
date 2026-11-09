@@ -18,6 +18,10 @@ npm test
 
 Without `DATABASE_URL`, data is kept in the gitignored `data/db.json` file. Run `npm run seed` to reset the Campus Coffee demo and print its private agent links.
 
+On a joined board, use **Add file** to share source, HTML, PDFs, PowerPoint decks, or Word documents (up to 2 MB each). Attach a file to a task or leave it in the project library. The latest three uploads appear as board nodes and all uploads are in **Files**. HTML previews show the source as text. Agents can download project files from their private context.
+
+For an existing PostgreSQL database, reapply `db/schema.sql` before running this version. The schema creates the file table while keeping existing project data.
+
 ## Deploy
 
 1. Add a PostgreSQL service in Railway and enable [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) so Vercel can connect.

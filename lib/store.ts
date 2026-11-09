@@ -2,12 +2,12 @@
 // PostgreSQL serializes writes per project. Local development uses a synchronous JSON write.
 import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { empty, loadActivityId, loadProject, loadSession, projectTransaction, recordRateHit, type DB, type Selector } from "./postgres";
+import { dirname, extname, resolve } from "node:path";
+import { empty, loadActivityId, loadFileBytes, loadProject, loadSession, projectTransaction, recordRateHit, type DB, type Selector, type StoredFile } from "./postgres";
 import {
-  COLORS, LIMIT, PHASES, clean, cleanText, isCode, isDate, isToken, matchTask, publicMember,
+  COLORS, FILE_ACCEPT, FILE_LIMIT, LIMIT, PHASES, clean, cleanText, isCode, isDate, isToken, matchTask, publicMember,
   type Activity, type AgentContext, type Decision, type Member, type Note, type Phase,
-  type Project, type Result, type Status, type Task, type UpdateBlock,
+  type Project, type ProjectFile, type Result, type Status, type Task, type UpdateBlock,
 } from "./core";
 
 const file = () => resolve(process.env.IGLOO_DATA_FILE ?? "data/db.json");
@@ -42,6 +42,7 @@ const live = (db: DB, me: Member) => {
   return m;
 };
 const gone: Result = { error: "You are no longer in this group" };
+const publicFile = ({ data: _data, ...metadata }: StoredFile): ProjectFile => metadata;
 
 // ---------- Rate limits ----------
 const hits = new Map<string, number[]>();
@@ -70,6 +71,7 @@ export async function getBoard(slug: string) {
     members: of(db.members).map(publicMember),
     tasks: of(db.tasks).sort((a, b) => a.position - b.position),
     decisions: of(db.decisions),
+    files: of(db.project_files).map(publicFile),
     activity: of(db.activity).slice(-60).reverse(),
   };
 }
@@ -108,6 +110,7 @@ export async function agentContext(agentToken: string): Promise<AgentContext | n
     tasks: of(db.tasks).sort((a, b) => a.position - b.position),
     decisions: of(db.decisions),
     notes: of(db.notes),
+    files: of(db.project_files).map(publicFile),
   };
 }
 
@@ -153,8 +156,49 @@ export async function deleteProject(slug: string) {
     Object.assign(db, {
       projects: db.projects.filter((x) => x !== p), members: keep(db.members), tasks: keep(db.tasks),
       decisions: keep(db.decisions), notes: keep(db.notes), activity: keep(db.activity),
+      project_files: keep(db.project_files),
     });
   });
+}
+
+export async function shareFile(me: Member, file: File, taskId: string): Promise<Result> {
+  if (!file.size || file.size > FILE_LIMIT) return { error: "Choose a file between 1 byte and 2 MB" };
+  const name = clean(file.name.replace(/[\\/]/g, "_"), 160);
+  const extension = extname(name).toLowerCase();
+  if (!FILE_ACCEPT.split(",").includes(extension)) return { error: "This file type is not supported" };
+  const kind = extension === ".pdf" ? "pdf" : extension === ".pptx" ? "slides" : extension === ".docx" ? "document" : "text";
+  const bytes = Buffer.from(await file.arrayBuffer());
+  if (kind === "pdf" && !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) return { error: "Choose a valid PDF" };
+  if ((kind === "slides" || kind === "document") && (bytes.length < 4 || bytes.readUInt32LE(0) !== 0x04034b50)) {
+    return { error: "Choose a valid PowerPoint or Word file" };
+  }
+  if (kind === "text") {
+    try { new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+    catch { return { error: "Source files must use UTF-8 text" }; }
+    if (bytes.includes(0)) return { error: "Source files must contain text" };
+  }
+  return tx({ projectId: me.project_id }, (db) => {
+    const member = live(db, me);
+    if (!member) return gone;
+    if (taskId && !findTask(db, me, taskId)) return { error: "Task not found" };
+    const files = db.project_files.filter((entry) => entry.project_id === me.project_id);
+    if (files.length >= 24 || files.reduce((sum, entry) => sum + entry.size, bytes.length) > 12 * 1024 * 1024) {
+      return { error: "This project has reached its shared file limit" };
+    }
+    db.project_files.push({
+      id: randomUUID(), project_id: me.project_id, task_id: taskId || null, member_id: member.id,
+      name, kind, size: bytes.length, created_at: now(), data: bytes.toString("base64"),
+    });
+    log(db, me.project_id, member.id, "file", `${member.name} shared ${name}`);
+    return { ok: "File shared" };
+  });
+}
+
+export async function sharedFile(projectId: string, id: string) {
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) return null;
+  const file = process.env.DATABASE_URL ? await loadFileBytes(projectId, id) :
+    loadFile().project_files.find((entry) => entry.project_id === projectId && entry.id === id);
+  return file?.data ? { ...publicFile(file), bytes: Buffer.from(file.data, "base64") } : null;
 }
 
 export async function joinProject(slug: string, input: { name: string; ai_tool: string; code: string }): Promise<Result & { session?: string }> {
