@@ -126,12 +126,129 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .pane { padding: 16px; overflow-y: auto; flex: 1; }
 .sec { margin-bottom: 20px; }
 .sec-t { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
-.task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
-.task.mine { border-color: rgb(232 116 59 / .4); }
-.task .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.task .strike { color: var(--muted); text-decoration: line-through; }
-.task .acts { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
-.owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+/* Task cards. Status shows as a word plus an icon, and a left edge: none for To do, amber for In progress, quiet for Done. */
+.filters { margin-bottom: 16px; }
+.filters button { flex: 1 1 auto; padding: 5px 8px; white-space: nowrap; }
+.filters .count { margin-left: 2px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.empty { border: 1px dashed var(--border); border-radius: 12px; padding: 16px; text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.empty p { margin: 0 0 10px; }
+.empty p:last-child { margin: 0; }
+.task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 10px 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
+.task.mine { border-color: rgb(232 116 59 / .45); }
+.task.s-doing { box-shadow: inset 3px 0 0 var(--warn), var(--shadow-soft); }
+.task.s-done { background: var(--bg); box-shadow: none; }
+.task.open { box-shadow: var(--shadow-lift); }
+.task.s-doing.open { box-shadow: inset 3px 0 0 var(--warn), var(--shadow-lift); }
+.t-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.t-title { font-weight: 500; line-height: 1.35; cursor: pointer; overflow-wrap: anywhere; }
+.task .strike { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+.t-meta { margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 26px; }
+.owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); min-width: 0; }
+.owner .who { color: var(--text); white-space: nowrap; }
+.owner .ai { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--muted); }
+.chev:hover { background: var(--soft); color: var(--text); }
+.chev svg { transition: transform .15s; }
+.chev[aria-expanded="true"] svg { transform: rotate(180deg); }
+.t-err { margin: 8px 0 0; font-size: 12px; color: var(--bad); }
+.t-more { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 10px; font-size: 12px; }
+.t-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.t-facts > div { display: contents; }
+.t-facts dt { color: var(--muted); }
+.t-facts dd { margin: 0; }
+.t-info { margin: 0; background: var(--soft); border-radius: 10px; padding: 8px 10px; color: var(--muted); }
+.t-ai { display: flex; align-items: center; gap: 10px; background: var(--accent-soft); border-radius: 10px; padding: 8px 10px; }
+.t-ai .btn, .t-meta .btn { flex-shrink: 0; white-space: nowrap; }
+.t-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.t-actions .danger { margin-left: auto; }
+.linkbtn.danger:hover { color: var(--bad); }
+.t-confirm { border: 1px solid rgb(212 137 26 / .35); background: rgb(212 137 26 / .06); border-radius: 10px; padding: 10px; }
+.t-confirm p { margin: 0 0 8px; }
+.add-task { margin-top: 4px; }
+/* Type, everywhere: Inter for body text (the body font), Manrope for headings and card titles,
+   JetBrains Mono for codes and for status, counts, deadlines and times. */
+h1, .title, .sec-t, .t-title, .ai-task-title, .fair-head > span:first-child, .mhead > div > div:first-child {
+  font-family: var(--font-head), var(--font-sans), system-ui, sans-serif; letter-spacing: -.01em;
+}
+.chip, .due, .tasks .count, .date-in, .t-hist li .small, .t-note figcaption, .ev .small, .num, .palette .foot,
+.app header .pill {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* Task bar palette: ink #08121F, navy #16314A, teal #25B5A9, neon #A0FF77 (used least: only Done), mint #F2FFF0.
+   The shared tokens are redefined inside the task bar, so the board keeps the warm theme.
+   Amber and red stay for deadlines: they mean "soon" and "late". */
+.tasks, .app header, .app aside {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --teal-ink: #0e6b63; --neon: #A0FF77; --mint: #F2FFF0;
+}
+/* The whole side panel (every tab) and the task list in List view share the light palette. */
+.tasks, .app aside {
+  --text: var(--ink); --muted: #4b6177; --accent: var(--teal); --accent-soft: rgb(37 181 169 / .12);
+  --border: rgb(22 49 74 / .14); --soft: rgb(22 49 74 / .06); --bg: var(--mint);
+  --shadow-soft: 0 1px 2px rgb(8 18 31 / .05), 0 4px 14px rgb(8 18 31 / .06);
+  --shadow-lift: 0 2px 4px rgb(8 18 31 / .06), 0 12px 28px rgb(8 18 31 / .12);
+  color: var(--text);
+}
+.app aside .pane { background: var(--mint); }
+.tasks .btn, .app aside .btn { color: var(--ink); }
+.tasks .input:focus, .tasks .date-in:focus, .app aside .input:focus { box-shadow: 0 0 0 3px rgb(37 181 169 / .25); }
+.tasks .task.mine { border-color: rgb(37 181 169 / .6); }
+.tasks .task.s-doing { box-shadow: inset 3px 0 0 var(--teal), var(--shadow-soft); }
+.tasks .task.s-doing.open { box-shadow: inset 3px 0 0 var(--teal), var(--shadow-lift); }
+.tasks .task.s-done { background: rgb(22 49 74 / .03); }
+.tasks .chip.doing { background: rgb(37 181 169 / .16); color: var(--teal-ink); }
+.tasks .chip.done { background: var(--neon); color: var(--ink); }
+
+/* Top bar: a white pill floating over the page, like a site nav. Plain text links, and one dark pill
+   (Copy update for group chat) at the far right for the main action. */
+.app header { background: #fff; color: var(--ink); --text: var(--ink); --muted: #4b6177; --border: rgb(22 49 74 / .12); --accent: var(--ink); }
+/* Project name on top, course and days underneath (the markup has them the other way round). */
+.app header .proj { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 1px; min-width: 0; line-height: 1.25; }
+.app header .ctx { font-size: 11px; }
+.app header .title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
+.app header .ctx { white-space: nowrap; }
+.app header .pill { background: rgb(22 49 74 / .06); color: var(--ink); }
+.app header .seg { background: rgb(22 49 74 / .06); border-radius: 999px; }
+.app header .seg button { border-radius: 999px; color: var(--muted); }
+.app header .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgb(8 18 31 / .12); }
+.app header .ghost { border: 0; background: transparent; color: var(--ink); font-size: 13px; font-weight: 500; border-radius: 999px; padding: 6px 10px; }
+.app header .ghost:hover { background: rgb(22 49 74 / .06); }
+.app header .btn { order: 10; background: var(--ink); color: var(--mint); border-radius: 999px; padding: 9px 18px; font-size: 13px; box-shadow: none; }
+.app header .btn:hover { filter: none; background: var(--navy); }
+.app header .me { font-size: 13px; }
+.app header .linkbtn:hover { color: var(--ink); }
+
+/* Side panel tab bar (Tasks, Your AI, What's new, Decisions): mint strip, ink for the open tab, teal underline. */
+.app nav {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --mint: #F2FFF0;
+  background: var(--mint); border-bottom-color: rgb(22 49 74 / .14);
+}
+.app nav button { color: #4b6177; }
+.app nav button:hover { color: var(--ink); }
+.app nav button.on { color: var(--ink); border-color: var(--teal); }
+/* Task deadline: plain, then a soft warning when close, a clear one when late. The words say it too. */
+.due { flex-shrink: 0; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11px; color: var(--muted); border: 1px solid var(--border); }
+.due.soon { color: var(--warn); border-color: rgb(212 137 26 / .35); background: rgb(212 137 26 / .06); }
+.due.late { color: var(--bad); border-color: rgb(214 69 69 / .4); background: rgb(214 69 69 / .06); font-weight: 500; }
+.due-edit { display: flex; align-items: center; gap: 8px; }
+.date-in { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 2px 6px; font-size: 12px; color: var(--text); }
+.date-in:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgb(232 116 59 / .15); }
+.t-note { margin: 0; background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+.t-note figcaption { display: flex; align-items: center; gap: 6px; }
+.t-note blockquote { margin: 4px 0 0; color: var(--text); overflow-wrap: anywhere; }
+.t-hist ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.t-hist li { display: flex; justify-content: space-between; gap: 8px; }
+.t-hist li .small { flex-shrink: 0; }
+@media (pointer: coarse) { .task .sm, .chev, .task select.hand { min-height: 36px; } .chev { width: 36px; } }
+/* "Use my AI" lands here */
+.ai-task { border: 1px solid rgb(232 116 59 / .45); background: var(--accent-soft); border-radius: 12px; padding: 12px; margin-bottom: 20px; outline: none; }
+.ai-task:focus-visible { box-shadow: 0 0 0 3px rgb(232 116 59 / .25); }
+.ai-task-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ai-task .eyebrow { margin-bottom: 2px; }
+.ai-task-title { font-weight: 600; overflow-wrap: anywhere; }
+.steps { margin: 10px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.steps b { color: var(--text); font-weight: 500; }
+.linkbtn.inline { color: var(--accent); text-decoration: underline; font-weight: 500; }
 .private { background: var(--soft); border-radius: 12px; padding: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .help { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
 .help b { color: var(--text); font-weight: 500; }
@@ -165,3 +282,72 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .palette .item.sel { background: var(--soft); }
 .palette .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .palette .foot { display: flex; gap: 12px; border-top: 1px solid var(--border); padding: 8px 16px; font-size: 12px; color: var(--muted); }
+/* Other tabs in the palette. Teal is too light for text on mint, so links and labels use the darker teal. */
+.app aside .eyebrow, .app aside .linkbtn.inline { color: var(--teal-ink); }
+.app aside .ai-task { border-color: rgb(37 181 169 / .55); background: rgb(37 181 169 / .1); }
+.app aside .ai-task:focus-visible { box-shadow: 0 0 0 3px rgb(37 181 169 / .3); }
+.app aside .live .dot { background: var(--teal); }
+.app aside .dec { box-shadow: var(--shadow-soft); }
+
+/* Floating side panel. Wide screens: a card over the board, hidden with the chevron and brought back with
+   "Tasks and team". Phones: it stays below the board, and hiding folds it to the tab strip. */
+.app nav { align-items: center; overflow: hidden; }
+/* Tabs still scroll sideways on narrow screens, without a scrollbar crowding the strip. */
+.app nav .tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.app nav .panel-toggle { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; margin: 0 0 0 4px; padding: 0;
+  border: 1px solid transparent; border-radius: 8px; color: #4b6177; }
+.app nav .panel-toggle:hover { background: rgb(22 49 74 / .06); color: #08121F; }
+.app nav .panel-toggle:focus-visible, .panel-show:focus-visible { outline-color: #25B5A9; }
+.panel-show { display: none; }
+@media (min-width: 861px) {
+  .body { position: relative; }
+  .app aside { position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 5; border: 1px solid rgb(22 49 74 / .14);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 2px 4px rgb(8 18 31 / .06), 0 16px 40px rgb(8 18 31 / .14); }
+  .body.panel-hidden aside { display: none; }
+  .body.panel-open .list { padding-right: 416px; }
+  .panel-show { display: inline-flex; align-items: center; gap: 6px; position: absolute; top: 12px; right: 12px; z-index: 5;
+    border: 0; border-radius: 999px; padding: 8px 14px; background: #08121F; color: #F2FFF0;
+    font: 500 12px var(--font-sans), system-ui, sans-serif; box-shadow: 0 4px 16px rgb(8 18 31 / .18); }
+  .panel-show:hover { background: #16314A; }
+}
+
+/* Floating top bar: a pill with the dotted page showing around it.
+   The dots move from the board to the whole page so they run on behind the bar without a seam. */
+.app { background-color: var(--bg); background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); background-size: 22px 22px; }
+.app .board.dots, .app .list.dots { background: none; }
+.app header { position: relative; z-index: 6; align-self: center; max-width: calc(100% - 24px); margin: 12px 12px 0;
+  padding: 6px 6px 6px 22px; gap: 8px 20px; border: 1px solid rgb(22 49 74 / .1); border-radius: 999px;
+  box-shadow: 0 2px 4px rgb(8 18 31 / .06), 0 12px 32px rgb(8 18 31 / .14); }
+/* Too narrow for one line: full width, softer corners. */
+@media (max-width: 960px) { .app header { align-self: stretch; max-width: none; border-radius: 24px; padding: 8px 8px 8px 20px; } }
+@media (max-width: 860px) { .app header { margin: 8px 8px 0; border-radius: 20px; padding: 12px 12px 12px 16px; } }
+
+/* Phase header: name on the left, done/total on the right. */
+.phase-t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.phase-t .num { width: auto; font-size: 12px; font-weight: 500; }
+/* Quick actions in the top bar: an icon and its shortcut. */
+.app header .qa { gap: 6px; color: var(--muted); }
+.app header .qa:hover { color: var(--ink); }
+.app header .qa kbd { font: 500 11px var(--font-mono), ui-monospace, monospace; border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; background: #fff; }
+/* Top bar icon buttons (Invite, Copy summary): round, same height as the rest of the bar. */
+.app header .icon-btn { width: 38px; height: 38px; padding: 0; border-radius: 999px; }
+/* Board / List as icons. */
+.app header .seg .view-btn { display: grid; place-items: center; width: 34px; height: 28px; padding: 0; }
+
+/* Brand: the "igloo." wordmark in Satoshi Bold at the very top left of the page, level with the floating top bar.
+   The top bar keeps clear of it: room on the left on wide screens, starts after it on medium ones, goes below it on phones. */
+.app { position: relative; }
+.igloo-wordmark {
+  /* As tall as the top bar: the letters (top of the "i" to the foot of the "g") are 1em, and the bar is 51px. */
+  position: absolute; top: 12px; left: 24px; z-index: 7;
+  font-family: "Satoshi", var(--font-head), sans-serif; font-size: 51px; font-weight: 700;
+  letter-spacing: -0.055em; line-height: 1; color: #16314A; text-decoration: none; white-space: nowrap;
+}
+.igloo-wordmark:hover { color: #08121F; }
+.igloo-wordmark:focus-visible { outline: 2px solid #25B5A9; outline-offset: 4px; border-radius: 4px; }
+@media (min-width: 961px) { .app header { max-width: calc(100% - 340px); } }
+@media (min-width: 861px) and (max-width: 960px) { .app header { margin-left: 160px; } }
+@media (max-width: 860px) {
+  .igloo-wordmark { font-size: 36px; top: 12px; left: 16px; }
+  .app header { margin-top: 58px; }
+}

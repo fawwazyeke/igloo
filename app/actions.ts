@@ -68,6 +68,9 @@ export async function unclaim(slug: string, taskId: string): Promise<Result> {
 export async function reassign(slug: string, taskId: string, memberId: string): Promise<Result> {
   return asMember(slug, (me) => store.reassignTask(me, str(taskId), str(memberId)));
 }
+export async function setDue(slug: string, taskId: string, due: string | null): Promise<Result> {
+  return asMember(slug, (me) => store.setTaskDue(me, str(taskId), due === null ? null : str(due)));
+}
 export async function addTask(slug: string, title: string, phase: Phase): Promise<Result> {
   return asMember(slug, (me) => store.addTask(me, str(title), PHASES.includes(phase) ? phase : "build"));
 }
