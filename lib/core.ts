@@ -202,6 +202,7 @@ export function buildAgentText(c: AgentContext, origin: string, now = new Date()
     `${me.name} pastes your reply into Igloo. If you can run shell commands, post it yourself:`,
     `curl -s -X POST ${origin}/a/${me.agent_token} --data-binary $'IGLOO UPDATE\\ntask: ${shellQuote(example)}\\nstatus: doing\\nnote: started'`, "",
     `MCP clients can connect to ${origin}/api/mcp?token=${me.agent_token}`,
+    "Over MCP you can also share files with the team using the upload_file tool.",
   ];
   return out.join("\n") + "\n";
 }

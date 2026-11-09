@@ -1,6 +1,6 @@
 "use client";
 // The whole group page, laid out like docs/group-page-sample.html.
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
 import { Dropdown } from "./dropdown";
@@ -121,25 +121,43 @@ type Toast = { id: number; text: string; tone: "ok" | "bad" | "info" };
 type Actions = ReturnType<typeof useActions>;
 type Ctx = { d: AppData; byId: Map<string, MemberPublic>; a: Actions; openFile: (id: string) => void };
 
-function useActions(d: AppData, toast: (t: string, tone?: Toast["tone"]) => void) {
+type TaskPatch = { id: string; changes: Partial<Task> };
+function useActions(d: AppData, toast: (t: string, tone?: Toast["tone"]) => void, patch: (p: TaskPatch) => void) {
   const [, start] = useTransition();
-  const run = (p: Promise<Result>) => start(async () => { const r = await p; if (r.error) toast(r.error, "bad"); else if (r.ok) toast(r.ok, "ok"); });
+  // The optimistic change shows at once. It stays until the server answers and the board refreshes,
+  // and React drops it on its own if the server refused (for example, a teammate claimed first).
+  const run = (call: () => Promise<Result>, optimistic?: TaskPatch) => start(async () => {
+    if (optimistic) patch(optimistic);
+    const r = await call();
+    if (r.error) toast(r.error, "bad"); else if (r.ok) toast(r.ok, "ok");
+  });
+  const now = () => new Date().toISOString();
   const groupUrl = () => `${location.origin}/p/${d.slug}`;
   return {
-    claim: (t: Task) => run(A.claim(d.slug, t.id)),
-    status: (t: Task, s: Status) => run(A.setStatus(d.slug, t.id, s)),
-    unclaim: (t: Task) => run(A.unclaim(d.slug, t.id)),
-    reassign: (t: Task, m: string) => run(A.reassign(d.slug, t.id, m)),
-    addTask: (title: string) => run(A.addTask(d.slug, title)),
-    propose: (text: string) => run(A.proposeDecision(d.slug, text)),
-    approve: (id: string) => run(A.approveDecision(d.slug, id)),
+    claim: (t: Task) => run(() => A.claim(d.slug, t.id),
+      t.owner_member_id ? undefined : { id: t.id, changes: { owner_member_id: d.me.id, claimed_at: now() } }),
+    status: (t: Task, s: Status) => run(() => A.setStatus(d.slug, t.id, s),
+      !t.owner_member_id || t.owner_member_id === d.me.id
+        ? { id: t.id, changes: { status: s, done_at: s === "done" ? now() : null, owner_member_id: d.me.id, claimed_at: t.claimed_at ?? now() } }
+        : undefined),
+    unclaim: (t: Task) => run(() => A.unclaim(d.slug, t.id),
+      t.owner_member_id === d.me.id ? { id: t.id, changes: { owner_member_id: null, status: "todo", claimed_at: null, done_at: null } } : undefined),
+    reassign: (t: Task, m: string) => run(() => A.reassign(d.slug, t.id, m),
+      { id: t.id, changes: { owner_member_id: m, claimed_at: now(), ...(t.status === "done" ? { status: "doing" as const, done_at: null } : {}) } }),
+    addTask: (title: string) => run(() => A.addTask(d.slug, title)),
+    propose: (text: string) => run(() => A.proposeDecision(d.slug, text)),
+    approve: (id: string) => run(() => A.approveDecision(d.slug, id)),
     copyDigest: () => copy(buildDigest(d.project, d.members, d.tasks, groupUrl())).then(() => toast("Update copied. Paste it in your group chat.", "ok")),
     copyAgent: () => copy(`${location.origin}/a/${d.me.agent_token}`).then(() => toast("Link copied. Paste it into your AI, and keep it private.", "ok")),
     copyInvite: () => copy(`Join ${d.project.name} on Igloo\n${groupUrl()}\nCode: ${d.project.join_code}`).then(() => toast("Invite copied", "ok")),
   };
 }
 
-export function App(d: AppData) {
+export function App(props: AppData) {
+  // Task buttons update this copy right away, before the server confirms.
+  const [tasks, patchTasks] = useOptimistic(props.tasks, (ts: Task[], p: TaskPatch) =>
+    ts.map((t) => (t.id === p.id ? { ...t, ...p.changes } : t)));
+  const d = useMemo(() => ({ ...props, tasks }), [props, tasks]);
   const router = useRouter();
   const [view, setView] = useState<"board" | "list">("board");
   const [tab, setTab] = useState<Tab>("tasks");
@@ -155,7 +173,7 @@ export function App(d: AppData) {
     setToasts((t) => [...t.slice(-3), { id, text, tone }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
   }, []);
-  const a = useActions(d, toast);
+  const a = useActions(d, toast, patchTasks);
 
   // Live: every 3 seconds ask for the newest activity id; refresh when it changed, toast teammates' events.
   const latest = d.activity[0]?.id ?? 0;
