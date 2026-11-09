@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groupmind Group Page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Same palette as app/globals.css */
+  :root {
+    --bg: #fbf8f3; --panel: #fff; --soft: #f4efe7; --border: #ebe4d8;
+    --text: #2b2622; --muted: #8c8379; --accent: #e8743b; --accent-soft: #fdeee4;
+    --ok: #2f9e6b; --warn: #d4891a; --bad: #d64545; --dot: #e3dbcd;
+    --shadow-soft: 0 1px 2px rgb(60 40 20 / .04), 0 4px 16px rgb(60 40 20 / .06);
+    --shadow-lift: 0 2px 4px rgb(60 40 20 / .05), 0 12px 32px rgb(60 40 20 / .10);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 14px/1.45 Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  .banner { background: var(--accent-soft); color: var(--accent); text-align: center; font-size: 12px; padding: 6px 16px; }
+
+  .app { display: flex; flex-direction: column; min-height: calc(100dvh - 30px); }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); padding: 10px 16px; }
+  .ctx { font-size: 12px; color: var(--muted); }
+  .title { font-size: 16px; font-weight: 600; }
+  .pill { border-radius: 999px; background: var(--soft); padding: 4px 10px; font-size: 12px; color: var(--muted); }
+  .hright { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .seg { display: flex; background: var(--soft); border-radius: 12px; padding: 4px; font-size: 12px; }
+  .seg button { border: 0; background: none; border-radius: 8px; padding: 4px 12px; color: var(--muted); }
+  .seg button.on { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .06); }
+  .btn, .ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; padding: 6px 12px; font-size: 12px; transition: filter .15s, transform .1s; }
+  .btn { border: 0; background: var(--accent); color: #fff; font-weight: 500; box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+  .btn:hover { filter: brightness(.95); }
+  .ghost { border: 1px solid var(--border); background: #fff; }
+  .ghost:hover { background: var(--soft); }
+  .btn:active, .ghost:active { transform: scale(.98); }
+  .sm { padding: 4px 9px; }
+  .me { display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--border); padding-left: 12px; font-size: 12px; }
+  .linkbtn { border: 0; background: none; color: var(--muted); padding: 0; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .body { display: flex; flex: 1; min-height: 0; }
+  main { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+  .dots { background-color: var(--bg); background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); background-size: 22px 22px; }
+  aside { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); }
+  @media (max-width: 860px) {
+    .body { flex-direction: column; }
+    main { height: 460px; flex: none; }
+    aside { width: 100%; border-left: 0; border-top: 1px solid var(--border); }
+    .me { border-left: 0; padding-left: 0; }
+  }
+
+  /* Board */
+  #board { height: 100%; min-height: 560px; }
+  @media (max-width: 860px) { #board { min-height: 0; } }
+  .stage { position: absolute; left: 50%; top: 50%; width: 1100px; height: 790px; transform-origin: 0 0; }
+  .stage svg { position: absolute; inset: 0; overflow: visible; }
+  .flow { stroke-dasharray: 6 6; animation: flow .6s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -12; } }
+  .node { position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 16px; }
+  .brain { width: 310px; padding: 20px; box-shadow: var(--shadow-lift); }
+  .member { width: 230px; padding: 14px; box-shadow: var(--shadow-soft); }
+  .member.mine { border-color: rgb(232 116 59 / .6); box-shadow: 0 0 0 4px rgb(232 116 59 / .1), var(--shadow-soft); }
+  .eyebrow { font-size: 12px; font-weight: 500; color: var(--accent); margin-bottom: 4px; }
+  .brief { margin: 4px 0 0; font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bars { margin-top: 12px; display: grid; gap: 4px; }
+  .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .bar .lbl { width: 80px; color: var(--muted); }
+  .track { position: relative; height: 8px; flex: 1; border-radius: 999px; background: var(--soft); }
+  .fill { height: 8px; border-radius: 999px; }
+  .num { width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .split { margin-top: 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--muted); }
+  .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #fff; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+  .mhead { display: flex; align-items: center; gap: 8px; }
+  .you { border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; padding: 0 6px; margin-left: 6px; }
+  .now { margin-top: 12px; background: var(--soft); border-radius: 12px; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .small { font-size: 12px; color: var(--muted); }
+
+  .chip { flex-shrink: 0; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
+  .chip.todo { background: var(--soft); color: var(--muted); }
+  .chip.doing { background: rgb(212 137 26 / .15); color: var(--warn); }
+  .chip.done { background: rgb(47 158 107 / .15); color: var(--ok); }
+
+  /* Fairness */
+  .fair-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .fair-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
+  .fair-row .name { width: 56px; overflow: hidden; text-overflow: ellipsis; }
+  .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: rgb(43 38 34 / .25); }
+
+  /* List view */
+  #list { height: 100%; overflow-y: auto; padding: 16px; display: none; }
+  .wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: var(--shadow-soft); }
+
+  /* Side panel */
+  nav { display: flex; border-bottom: 1px solid var(--border); padding: 0 8px; font-size: 12px; overflow-x: auto; }
+  nav button { border: 0; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+  nav button.on { border-color: var(--accent); color: var(--text); }
+  .pane { padding: 16px; overflow-y: auto; flex: 1; }
+  .pane > div { display: none; }
+  .pane > div.on { display: block; }
+  .sec { margin-bottom: 20px; }
+  .sec-t { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
+  .task.mine { border-color: rgb(232 116 59 / .4); }
+  .task .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .task .strike { color: var(--muted); text-decoration: line-through; }
+  .task .acts { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+  .owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  select.hand { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px 6px; font-size: 12px; color: var(--muted); }
+  .input { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 8px 12px; font-size: 12px; outline: none; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
+  .row { display: flex; gap: 6px; }
+  .private { background: var(--soft); border-radius: 12px; padding: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .help { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .help b { color: var(--text); font-weight: 500; }
+  .preview-ok { margin-top: 8px; border: 1px solid rgb(47 158 107 / .3); background: rgb(47 158 107 / .05); border-radius: 12px; padding: 8px 12px; font-size: 12px; }
+  .live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .live .dot { width: 6px; height: 6px; background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .ev { display: flex; gap: 10px; padding: 6px 4px; font-size: 12px; }
+  .ev .dot { margin-top: 5px; }
+  .ev span:nth-child(2) { flex: 1; }
+  .dec-wait { border: 1px solid rgb(212 137 26 / .3); background: rgb(212 137 26 / .05); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .dec { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-soft); }
+  .badge { color: var(--warn); margin-left: 4px; }
+
+  .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: #fff; border: 1px solid rgb(47 158 107 / .3); border-radius: 999px; padding: 8px 16px; font-size: 14px; box-shadow: var(--shadow-lift); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; max-width: calc(100vw - 32px); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="banner">Sample preview with demo data. Buttons only show what would happen.</div>
+<div class="app">
+  <header>
+    <div>
+      <div class="ctx">Marketing 301 · 9d left</div>
+      <div class="title">Campus Coffee App pitch</div>
+    </div>
+    <span class="pill">3 of 7 done</span>
+    <div class="hright">
+      <div class="seg"><button class="on" data-view="board">Board</button><button data-view="list">List</button></div>
+      <button class="ghost" data-toast="Invite copied">Invite</button>
+      <button class="btn" data-toast="Update copied. Paste it in your group chat.">Copy update for group chat</button>
+      <button class="ghost" style="color:var(--muted)" data-toast="Quick actions open with N or ⌘K">Quick actions</button>
+      <div class="me"><span class="dot" style="background:#f59e0b"></span>Aisha <button class="linkbtn">Switch</button></div>
+    </div>
+  </header>
+
+  <div class="body">
+    <main>
+      <div id="board" class="dots">
+        <div class="stage" id="stage">
+          <svg width="1100" height="790">
+            <line x1="550" y1="395" x2="550" y2="75" stroke="#ebe4d8" stroke-width="1.5"/>
+            <line x1="550" y1="395" x2="975" y2="395" stroke="#ebe4d8" stroke-width="1.5"/>
+            <line class="flow" x1="550" y1="395" x2="550" y2="715" stroke="#10b981" stroke-width="1.5"/>
+            <line class="flow" x1="550" y1="395" x2="125" y2="395" stroke="#ec4899" stroke-width="1.5"/>
+          </svg>
+
+          <div class="node brain" style="left:395px; top:225px">
+            <div class="eyebrow">Team project</div>
+            <div class="title">Campus Coffee App pitch</div>
+            <p class="brief">Pitch a mobile ordering app for the campus coffee cart. Audience is the Marketing 301 panel.</p>
+            <div class="bars">
+              <div class="bar"><span class="lbl">🔎 Research</span><div class="track"><div class="fill" style="width:100%;background:var(--accent)"></div></div><span class="num">2/2</span></div>
+              <div class="bar"><span class="lbl">🛠️ Build</span><div class="track"><div class="fill" style="width:33%;background:var(--accent)"></div></div><span class="num">1/3</span></div>
+              <div class="bar"><span class="lbl">🎤 Present</span><div class="track"><div class="fill" style="width:0"></div></div><span class="num">0/2</span></div>
+            </div>
+            <div class="split"><span>🤝 2 agreed decisions</span><span>📅 9d left</span></div>
+            <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px" class="fairness"></div>
+          </div>
+
+          <div class="node member mine" style="left:435px; top:10px">
+            <div class="mhead"><span class="avatar" style="background:#f59e0b">A</span><div style="flex:1"><div style="font-weight:500">Aisha<span class="you">you</span></div><div class="small">uses Claude</div></div><span class="dot" style="background:var(--ok)" title="Active now"></span></div>
+            <div class="now"><span>Persona and journey map</span><span class="chip done">Done</span></div>
+            <div class="small" style="margin-top:8px">2 of 2 tasks done</div>
+          </div>
+          <div class="node member" style="left:860px; top:330px">
+            <div class="mhead"><span class="avatar" style="background:#3b82f6">M</span><div style="flex:1"><div style="font-weight:500">Minjun</div><div class="small">uses ChatGPT</div></div><span class="dot" style="background:var(--border)" title="Seen 5m ago"></span></div>
+            <div class="now"><span>Competitor scan of campus cafes</span><span class="chip done">Done</span></div>
+            <div class="small" style="margin-top:8px">1 of 1 task done</div>
+          </div>
+          <div class="node member" style="left:435px; top:650px">
+            <div class="mhead"><span class="avatar" style="background:#10b981">D</span><div style="flex:1"><div style="font-weight:500">Daniel</div><div class="small">uses Gemini</div></div><span class="dot" style="background:var(--border)" title="Seen 10m ago"></span></div>
+            <div class="now"><span>Pricing and loyalty model</span><span class="chip doing">In progress</span></div>
+            <div class="small" style="margin-top:8px">0 of 1 task done</div>
+          </div>
+          <div class="node member" style="left:10px; top:330px">
+            <div class="mhead"><span class="avatar" style="background:#ec4899">S</span><div style="flex:1"><div style="font-weight:500">Sofia</div><div class="small">uses Cursor</div></div><span class="dot" style="background:var(--border)" title="Seen 15m ago"></span></div>
+            <div class="now"><span>Clickable app prototype</span><span class="chip doing">In progress</span></div>
+            <div class="small" style="margin-top:8px">0 of 1 task done</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="list" class="dots">
+        <div class="wrap">
+          <div class="card fairness"></div>
+          <div class="card tasklist"></div>
+        </div>
+      </div>
+    </main>
+
+    <aside>
+      <nav>
+        <button class="on" data-tab="tasks">Tasks</button>
+        <button data-tab="ai">Your AI</button>
+        <button data-tab="activity">What's new</button>
+        <button data-tab="decisions">Decisions<span class="badge">•</span></button>
+      </nav>
+      <div class="pane">
+        <div data-pane="tasks" class="on tasklist"></div>
+
+        <div data-pane="ai">
+          <div class="sec">
+            <div class="sec-t">1. Tell your AI about the project</div>
+            <p class="small" style="margin:0 0 12px">Your private link tells your AI the brief, your tasks, who is doing what, and what the team agreed.</p>
+            <div class="private">🔒 Private link for Aisha</div>
+            <div class="row" style="flex-wrap:wrap">
+              <button class="btn" data-toast="Link copied. Paste it into your AI, and keep it private.">Copy link</button>
+              <button class="ghost" data-toast="Copied. Paste it into your AI chat.">Copy as text</button>
+              <button class="ghost" data-toast="Opens what your AI will read">Preview</button>
+            </div>
+            <p class="help"><b>ChatGPT, Claude or Gemini app?</b> Use Copy as text and paste it in.<br><b>Claude Code, Codex or Cursor?</b> Give it the link. It can post updates by itself.</p>
+          </div>
+          <div class="sec">
+            <div class="sec-t">2. Paste what your AI said back</div>
+            <textarea class="input" rows="6">GROUPMIND UPDATE
+task: Pitch deck
+status: doing
+note: outline drafted, 8 slides</textarea>
+            <div class="preview-ok"><div style="font-weight:500">Pitch deck</div><div class="small">Marks it in progress, assigns it to you, adds a note</div><div class="small">“outline drafted, 8 slides”</div></div>
+            <button class="btn" style="width:100%;margin-top:8px" data-toast="Saved 1 update">Save 1 update</button>
+          </div>
+        </div>
+
+        <div data-pane="activity">
+          <div class="live"><span class="dot"></span>Live</div>
+          <div id="feed"></div>
+        </div>
+
+        <div data-pane="decisions">
+          <textarea class="input" rows="2" placeholder="Suggest something the team should agree on, like: Deck uses the blue theme"></textarea>
+          <button class="btn" style="width:100%;margin-top:8px;padding:8px" data-toast="Suggested to the team">Suggest to the team</button>
+          <p class="small" style="margin:8px 0 20px">When someone else agrees, it is locked in and every AI on the team will follow it.</p>
+          <div class="sec">
+            <div class="sec-t">Waiting for a yes · 1</div>
+            <div class="dec-wait">
+              <div>Deck has at most 10 slides</div>
+              <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center" class="small"><span>Suggested by Minjun</span><button class="btn sm" data-toast="Agreed. Every AI on the team now follows this.">Agree</button></div>
+            </div>
+          </div>
+          <div class="sec">
+            <div class="sec-t">Agreed · 2</div>
+            <div class="dec"><div>🔒 Target audience is first year students living on campus</div><div class="small" style="margin-top:4px">You suggested · Minjun agreed</div></div>
+            <div class="dec"><div>🔒 Loyalty is a stamp card: 9 coffees, 10th free</div><div class="small" style="margin-top:4px">Daniel suggested · Sofia agreed</div></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const P = { Aisha: "#f59e0b", Minjun: "#3b82f6", Daniel: "#10b981", Sofia: "#ec4899" };
+  const ME = "Aisha";
+  const LABEL = { todo: "To do", doing: "In progress", done: "Done" };
+  const tasks = [
+    ["research", "Survey 30 students on coffee habits", "Aisha", "done"],
+    ["research", "Competitor scan of campus cafes", "Minjun", "done"],
+    ["build", "Clickable app prototype", "Sofia", "doing"],
+    ["build", "Pricing and loyalty model", "Daniel", "doing"],
+    ["build", "Persona and journey map", "Aisha", "done"],
+    ["present", "Pitch deck", null, "todo"],
+    ["present", "Rehearse the 5 minute pitch", null, "todo"],
+  ];
+  const PH = { research: "🔎 Research", build: "🛠️ Build", present: "🎤 Present" };
+  const feed = [
+    ["Aisha", "Aisha finished Persona and journey map", "30m ago"],
+    ["Sofia", "Sofia: Prototype has order and pay screens, loyalty screen next", "3h ago"],
+    ["Minjun", "Minjun proposed: Deck has at most 10 slides", "4h ago"],
+    ["Daniel", "Daniel claimed Pricing and loyalty model", "16h ago"],
+    ["Sofia", "Sofia claimed Clickable app prototype", "1d ago"],
+    ["Minjun", "Minjun finished Competitor scan of campus cafes", "1d ago"],
+    ["Aisha", "Aisha finished Survey 30 students on coffee habits", "2d ago"],
+    ["Minjun", "Minjun approved: Target audience is first year students living on campus", "2d ago"],
+    ["Minjun", "Minjun claimed Competitor scan of campus cafes", "2d ago"],
+    ["Aisha", "Aisha claimed Survey 30 students on coffee habits", "2d ago"],
+    ["Sofia", "Sofia joined with Cursor", "2d ago"],
+    ["Daniel", "Daniel joined with Gemini", "2d ago"],
+    ["Minjun", "Minjun joined with ChatGPT", "2d ago"],
+    ["Aisha", "Aisha joined with Claude", "2d ago"],
+    [null, "Project created with 7 tasks", "3d ago"],
+  ];
+
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const dot = (c, cls = "") => `<span class="dot ${cls}" style="background:${c}"></span>`;
+
+  // Fairness: share of finished tasks per person, fair share = 25%
+  const done = tasks.filter((t) => t[3] === "done" && t[2]);
+  const fairHtml = `<div class="fair-head"><span style="font-weight:600">Who has done what</span><span class="small">fair share is 25% each</span></div>` +
+    Object.keys(P).map((n) => {
+      const s = done.filter((t) => t[2] === n).length / done.length;
+      return `<div class="fair-row"><span class="name">${n}</span><div class="track"><div class="fill" style="width:${s * 100}%;background:${P[n]}"></div><div class="mark" style="left:25%"></div></div><span class="num">${Math.round(s * 100)}%</span></div>`;
+    }).join("");
+  document.querySelectorAll(".fairness").forEach((el) => (el.innerHTML = fairHtml));
+
+  const others = (owner) => ["Me", ...Object.keys(P).filter((n) => n !== ME)].filter((n) => (n === "Me" ? ME : n) !== owner);
+  const taskHtml = Object.keys(PH).map((ph) => {
+    const ts = tasks.filter((t) => t[0] === ph);
+    return `<div class="sec"><div class="sec-t">${PH[ph]} · ${ts.filter((t) => t[3] === "done").length} of ${ts.length} done</div>` +
+      ts.map(([, title, owner, st]) => {
+        const mine = owner === ME;
+        const who = owner ? `<span class="owner">${dot(P[owner])}${mine ? "You" : owner}</span>` : `<span class="owner">Up for grabs</span>`;
+        const acts = [
+          !owner && `<button class="btn sm" data-toast="You claimed ${esc(title)}">Claim</button>`,
+          mine && st !== "doing" && `<button class="ghost sm" data-toast="Reopened">${st === "done" ? "Reopen" : "Start"}</button>`,
+          mine && st !== "done" && `<button class="ghost sm" data-toast="Marked done">Done</button>`,
+          mine && `<button class="linkbtn" style="font-size:12px" data-toast="Unclaimed">Unclaim</button>`,
+          `<select class="hand"><option>Hand to…</option>${others(owner).map((n) => `<option>${n}</option>`).join("")}</select>`,
+        ].filter(Boolean).join("");
+        return `<div class="task ${mine ? "mine" : ""}"><div class="top"><span class="${st === "done" ? "strike" : ""}">${esc(title)}</span><span class="chip ${st}">${LABEL[st]}</span></div><div class="acts">${who}${acts}</div></div>`;
+      }).join("") + `</div>`;
+  }).join("") +
+    `<div class="row"><input class="input" placeholder="Add a task…"><select class="hand" style="border-radius:12px"><option>🛠️ Build</option><option>🔎 Research</option><option>🎤 Present</option></select><button class="ghost sm" data-toast="Task added">Add</button></div>`;
+  document.querySelectorAll(".tasklist").forEach((el) => (el.innerHTML = taskHtml));
+
+  document.getElementById("feed").innerHTML = feed.map(([who, msg, when]) =>
+    `<div class="ev">${dot(who ? P[who] : "var(--muted)")}<span>${esc(msg)}</span><span class="small">${when}</span></div>`).join("");
+
+  // Tabs
+  document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+    document.querySelectorAll("[data-pane]").forEach((p) => p.classList.toggle("on", p.dataset.pane === b.dataset.tab));
+  }));
+
+  // Board / List
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-view]").forEach((x) => x.classList.toggle("on", x === b));
+    const board = b.dataset.view === "board";
+    document.getElementById("board").style.display = board ? "block" : "none";
+    document.getElementById("list").style.display = board ? "none" : "block";
+    if (board) fit();
+  }));
+
+  // Scale the board to fit its area
+  const stage = document.getElementById("stage"), board = document.getElementById("board");
+  function fit() {
+    const s = Math.min(board.clientWidth / 1140, board.clientHeight / 830, 1);
+    stage.style.transform = `scale(${s}) translate(-550px, -395px)`;
+  }
+  new ResizeObserver(fit).observe(board);
+  fit();
+
+  // Toasts
+  const toast = document.getElementById("toast");
+  let tid;
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-toast]");
+    if (!b) return;
+    toast.textContent = "✓ " + b.dataset.toast;
+    toast.classList.add("show");
+    clearTimeout(tid);
+    tid = setTimeout(() => toast.classList.remove("show"), 2500);
+  });
+</script>
+</body>
+</html>
