@@ -1,8 +1,9 @@
 "use client";
 // The whole group page, laid out like docs/group-page-sample.html.
-import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
+import { FileThumbnail } from "./file-thumbnail";
 import {
   AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, PHASES, buildDigest, dueLabel, fairness, fileUrl, matchTask, parseUpdates, timeAgo,
   type Activity, type Decision, type MemberPublic, type Phase, type ProjectFile, type Result, type Status, type Task,
@@ -214,7 +215,7 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
   const n = d.members.length, grow = Math.max(1, n / 6);
   const rx = 425 * grow, ry = 320 * grow, W = 2 * rx + 250, H = 2 * ry + 150, cx = W / 2, cy = H / 2;
   const visibleFiles = d.files.slice(-3).reverse();
-  const stageHeight = H + (visibleFiles.length ? 110 : 0);
+  const stageHeight = H + (visibleFiles.length ? 210 : 0);
   const nodes = d.members.map((m, i) => {
     const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
     const mine = d.tasks.filter((t) => t.owner_member_id === m.id);
@@ -239,7 +240,7 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
       <div className="stage" style={{ width: W, height: stageHeight, transform: `scale(${scale}) translate(${-cx}px, ${-stageHeight / 2}px)`, visibility: scale ? "visible" : "hidden" }}>
         <svg width={W} height={stageHeight} aria-hidden>
           {nodes.map((p) => <line key={p.m.id} x1={cx} y1={cy} x2={p.x} y2={p.y} strokeWidth={1.5} stroke={p.active ? p.m.color : "#ebe4d8"} className={p.active ? "flow" : undefined} />)}
-          {visibleFiles.map((f, i) => <line key={f.id} x1={cx} y1={cy} x2={cx + (i - (visibleFiles.length - 1) / 2) * 285} y2={H + 50} strokeWidth={1.5} stroke="#eab694" />)}
+          {visibleFiles.map((f, i) => <line key={f.id} x1={cx} y1={cy} x2={cx + (i - (visibleFiles.length - 1) / 2) * 285} y2={H + 103} strokeWidth={1.5} stroke="#eab694" />)}
         </svg>
         <div className="node brain" style={{ left: cx, top: cy }}>
           <div className="eyebrow">Team project</div>
@@ -279,15 +280,24 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
           );
         })}
         {visibleFiles.map((f, i) => (
-          <button key={f.id} className="node file-node" style={{ left: cx + (i - (visibleFiles.length - 1) / 2) * 285, top: H + 50 }} onClick={() => openFile(f.id)}>
-            <span className="eyebrow">📎 {FILE_LABEL[f.kind]}</span>
-            <strong>{f.name}</strong>
-            <span className="small">{d.tasks.find((task) => task.id === f.task_id)?.title ?? "Project file"}</span>
-          </button>
+          <FileCard key={f.id} file={f} slug={d.slug} className="node file-node"
+            style={{ left: cx + (i - (visibleFiles.length - 1) / 2) * 285, top: H + 103 }}
+            subtitle={d.tasks.find((task) => task.id === f.task_id)?.title ?? "Project file"} openFile={openFile} />
         ))}
       </div>
     </div>
   );
+}
+
+function FileCard({ file, slug, className, style, subtitle, openFile }: {
+  file: ProjectFile; slug: string; className: string; style?: CSSProperties; subtitle: string; openFile: (id: string) => void;
+}) {
+  return <div className={`file-card ${className}`} style={style}>
+    <FileThumbnail key={file.id} file={file} slug={slug} />
+    <button className="file-open" type="button" onClick={() => openFile(file.id)}>
+      <strong>{file.name}</strong><span className="small">{FILE_LABEL[file.kind]} · {subtitle}</span>
+    </button>
+  </div>;
 }
 
 function FilesPanel({ d, byId, selected, openFile, back }: {
@@ -303,6 +313,7 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
         <div className="eyebrow">{FILE_LABEL[file.kind]} · {titleOf(file)}</div>
         <h2 className="title">{file.name}</h2>
         <div className="small">Shared by {byId.get(file.member_id)?.name ?? "A teammate"} · {Math.max(1, Math.round(file.size / 1024))} KB</div>
+        <FileThumbnail key={file.id} file={file} slug={d.slug} />
         <div className="wrap-row file-actions">
           <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>
           {file.kind === "pdf" && <a className="ghost" href={fileUrl(file.id, d.slug) + "&preview=1"} target="_blank" rel="noreferrer">Open PDF</a>}
@@ -333,9 +344,8 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
         <button className="btn" disabled={pending}>{pending ? "Sharing…" : "Share file"}</button>
       </form>
       {d.files.slice().reverse().map((entry) => (
-        <button className="task file-row" key={entry.id} onClick={() => openFile(entry.id)}>
-          <strong>{entry.name}</strong><span className="small">{FILE_LABEL[entry.kind]} · {titleOf(entry)} · {byId.get(entry.member_id)?.name ?? "A teammate"}</span>
-        </button>
+        <FileCard key={entry.id} file={entry} slug={d.slug} className="task file-row"
+          subtitle={`${titleOf(entry)} · ${byId.get(entry.member_id)?.name ?? "A teammate"}`} openFile={openFile} />
       ))}
     </section>
   );

@@ -111,11 +111,22 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 
 /* Workspace files */
 .file-node { width: 245px; padding: 12px 14px; text-align: left; border-color: #efae8e; box-shadow: var(--shadow-soft); }
-.file-node > span, .file-node > strong { display: block; }
+.file-card { position: relative; }
+.file-card.node { position: absolute; }
+.file-open { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; }
+.file-open::before { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.file-open strong, .file-open .small { display: block; }
 .file-node strong, .file-node .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-node:hover, .file-row:hover { background: var(--accent-soft); }
-.file-row { display: block; width: 100%; text-align: left; overflow-wrap: anywhere; }
-.file-row strong, .file-row .small { display: block; }
+.file-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 10px; overflow-wrap: anywhere; }
+.file-thumb { display: grid; position: relative; place-items: center; height: 104px; width: 100%; overflow: hidden; background: var(--soft); border-radius: 9px; }
+.file-thumb-label { color: var(--muted); font: 500 12px var(--font-mono), monospace; }
+.file-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.file-thumb iframe { position: absolute; inset: 0; width: 200%; height: 200%; border: 0; background: var(--panel); transform-origin: top left; transform: scale(.5); pointer-events: none; }
+.file-node .file-thumb { margin-bottom: 8px; }
+.file-row .file-thumb { height: 48px; }
+.file-row .file-thumb iframe { width: 400%; height: 400%; transform: scale(.25); }
+.file-detail .file-thumb { height: 172px; margin-top: 10px; }
 .file-form { display: grid; gap: 9px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
 .file-form .label, .file-form p { margin: 0; }
 .file-form .input { display: block; margin-top: 5px; }

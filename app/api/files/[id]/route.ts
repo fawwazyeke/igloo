@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { agentContext, memberBySession, sharedFile } from "@/lib/store";
+import { officeThumbnail } from "@/lib/office-thumbnail";
 
 const types = {
   text: "text/plain; charset=utf-8",
@@ -27,6 +28,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!projectId) return notFound();
   const file = await sharedFile(projectId, (await params).id);
   if (!file) return notFound();
+  if (searchParams.get("thumbnail") === "1") {
+    if (file.kind !== "slides" && file.kind !== "document") return notFound();
+    const thumbnail = await officeThumbnail(file.bytes).catch(() => null);
+    if (!thumbnail) return notFound();
+    return new Response(new Uint8Array(thumbnail.image), {
+      headers: { ...securityHeaders, "content-type": thumbnail.type },
+    });
+  }
   const preview = searchParams.get("preview") === "1" && (file.kind === "text" || file.kind === "pdf");
   const disposition = preview ? "inline" : "attachment";
   const encodedName = encodeURIComponent(file.name).replace(/['()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16)}`);
