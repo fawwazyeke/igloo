@@ -257,7 +257,7 @@ export function App(props: AppData) {
 
       <div className="body">
         <main>
-          {view === "board" ? <Board d={d} openFile={openFile} /> : (
+          {view === "board" ? <Board d={d} a={a} openFile={openFile} /> : (
             <div className="list dots">
               <div className="stack">
                 <div className="card"><TaskList {...ctx} /></div>
@@ -293,63 +293,135 @@ export function App(props: AppData) {
 
 // ---------- Board ----------
 // A fixed stage, scaled to fit. With 4 members it is the sample's layout (1100 x 790); more members widen the ring.
-function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) {
-  const n = d.members.length, grow = Math.max(1, n / 6);
-  const rx = 425 * grow, ry = 320 * grow, W = 2 * rx + 250, H = 2 * ry + 150, cx = W / 2, cy = H / 2;
-  const visibleFiles = d.files.slice(-3).reverse();
-  const stageHeight = H + (visibleFiles.length ? 210 : 0);
-  const nodes = d.members.map((m, i) => {
-    const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
-    const mine = d.tasks.filter((t) => t.owner_member_id === m.id);
-    const task = mine.find((t) => t.status === "doing") ?? mine.find((t) => t.status === "todo") ?? mine.findLast((t) => t.status === "done");
-    return { m, x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry, task, active: mine.some((t) => t.status === "doing") };
+// Default spots, in stage units with the project title at 0,0. Tasks sit in a grid under the title;
+// files get their own free-standing area below the tasks.
+const TASK_W = 230, TASK_GAP_X = 24, TASK_ROW = 150, FILE_W = 245, FILE_ROW = 220;
+function defaultSpots(taskIds: string[], fileIds: string[]) {
+  const spots: Record<string, { x: number; y: number }> = {};
+  const cols = Math.min(4, Math.max(taskIds.length, 1));
+  taskIds.forEach((id, i) => {
+    const row = Math.floor(i / cols), inRow = Math.min(cols, taskIds.length - row * cols), col = i % cols;
+    spots[id] = { x: (col - (inRow - 1) / 2) * (TASK_W + TASK_GAP_X), y: 210 + row * TASK_ROW };
   });
+  const fileTop = 210 + Math.ceil(taskIds.length / cols) * TASK_ROW + 90;
+  const fileCols = Math.min(4, Math.max(fileIds.length, 1));
+  fileIds.forEach((id, i) => {
+    const row = Math.floor(i / fileCols), inRow = Math.min(fileCols, fileIds.length - row * fileCols), col = i % fileCols;
+    spots[id] = { x: (col - (inRow - 1) / 2) * (FILE_W + 40), y: fileTop + row * FILE_ROW };
+  });
+  return spots;
+}
+
+function Board({ d, a, openFile }: { d: AppData; a: Actions; openFile: (id: string) => void }) {
+  const byId = useMemo(() => new Map(d.members.map((m) => [m.id, m])), [d.members]);
+  const files = useMemo(() => d.files.slice().reverse(), [d.files]);
+  const defaults = useMemo(() => defaultSpots(d.tasks.map((t) => t.id), files.map((f) => f.id)), [d.tasks, files]);
+  // Where this viewer dragged things. Kept in this browser only.
+  const storeKey = `igloo-layout:${d.slug}`;
+  const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>({});
+  useEffect(() => {
+    try { setMoved(JSON.parse(localStorage.getItem(storeKey) ?? "{}")); } catch { /* no saved layout */ }
+  }, [storeKey]);
+  const spot = (id: string) => moved[id] ?? defaults[id] ?? { x: 0, y: 0 };
+
+  // Fit everything in view. The frame only changes when a drag ends, so the board doesn't jump mid-drag.
+  const [dragging, setDragging] = useState<string | null>(null);
+  const frameRef = useRef({ minX: -200, minY: -120, maxX: 200, maxY: 120 });
+  if (!dragging) {
+    const xs = [-170, 170], ys = [-90, 90];
+    for (const t of d.tasks) { const p = spot(t.id); xs.push(p.x - TASK_W / 2, p.x + TASK_W / 2); ys.push(p.y - 70, p.y + 70); }
+    for (const f of files) { const p = spot(f.id); xs.push(p.x - FILE_W / 2, p.x + FILE_W / 2); ys.push(p.y - 100, p.y + 100); }
+    frameRef.current = { minX: Math.min(...xs) - 30, minY: Math.min(...ys) - 30, maxX: Math.max(...xs) + 30, maxY: Math.max(...ys) + 30 };
+  }
+  const { minX, minY, maxX, maxY } = frameRef.current;
+  const W = maxX - minX, H = maxY - minY;
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => setScale(Math.min(el.clientWidth / (W + 40), el.clientHeight / (stageHeight + 40), 1));
+    const fit = () => setScale(Math.min(el.clientWidth / (W + 40), el.clientHeight / (H + 40), 1));
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     fit();
     return () => ro.disconnect();
-  }, [W, stageHeight]);
+  }, [W, H]);
+
+  // Drag any task or file by its body. A press that barely moves is still a normal click.
+  const drag = useRef<{ id: string; px: number; py: number; x: number; y: number; moved: boolean } | null>(null);
+  const onPointerDown = (id: string) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest("select, input, .dropdown, .acts button")) return;
+    const p = spot(id);
+    drag.current = { id, px: e.clientX, py: e.clientY, x: p.x, y: p.y, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = drag.current;
+    if (!g || !scale) return;
+    const dx = (e.clientX - g.px) / scale, dy = (e.clientY - g.py) / scale;
+    if (!g.moved && Math.hypot(dx, dy) < 4) return;
+    if (!g.moved) { g.moved = true; setDragging(g.id); }
+    setMoved((m) => ({ ...m, [g.id]: { x: Math.round(g.x + dx), y: Math.round(g.y + dy) } }));
+  };
+  const onPointerUp = () => {
+    const g = drag.current;
+    drag.current = null;
+    if (!g?.moved) return;
+    setDragging(null);
+    setMoved((m) => { try { localStorage.setItem(storeKey, JSON.stringify(m)); } catch { /* storage blocked */ } return m; });
+    // Swallow the click that follows a drag, so dropping a file doesn't open it.
+    window.addEventListener("click", (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+  };
+  const reset = () => { setMoved({}); try { localStorage.removeItem(storeKey); } catch { /* storage blocked */ } };
+  const handlers = (id: string) => ({ onPointerDown: onPointerDown(id), onPointerMove, onPointerUp, onPointerCancel: onPointerUp });
   const locked = d.decisions.filter((x) => x.approved_by).length;
+  const done = d.tasks.filter((t) => t.status === "done").length;
+  const at = (p: { x: number; y: number }) => ({ left: p.x - minX, top: p.y - minY });
 
   return (
     <div ref={box} className="board dots">
-      <div className="stage" style={{ width: W, height: stageHeight, transform: `scale(${scale}) translate(${-cx}px, ${-stageHeight / 2}px)`, visibility: scale ? "visible" : "hidden" }}>
-        <svg width={W} height={stageHeight} aria-hidden>
-          {nodes.map((p) => <line key={p.m.id} x1={cx} y1={cy} x2={p.x} y2={p.y} strokeWidth={1.5} stroke={p.active ? p.m.color : "#ebe4d8"} className={p.active ? "flow" : undefined} />)}
-          {visibleFiles.map((f, i) => <line key={f.id} x1={cx} y1={cy} x2={cx + (i - (visibleFiles.length - 1) / 2) * 285} y2={H + 103} strokeWidth={1.5} stroke="#eab694" />)}
+      {Object.keys(moved).length > 0 && <button className="ghost sm board-reset" onClick={reset}>Reset layout</button>}
+      <div className="stage" style={{ width: W, height: H, transform: `scale(${scale}) translate(${-W / 2}px, ${-H / 2}px)`, visibility: scale ? "visible" : "hidden" }}>
+        <svg width={W} height={H} aria-hidden>
+          {d.tasks.map((t) => {
+            const p = spot(t.id), o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
+            return <line key={t.id} x1={-minX} y1={60 - minY} x2={p.x - minX} y2={p.y - 60 - minY} strokeWidth={1.5}
+              stroke={t.status === "doing" && o ? o.color : "#ebe4d8"} className={t.status === "doing" ? "flow" : undefined} />;
+          })}
         </svg>
-        <div className="node brain" style={{ left: cx, top: cy }}>
+        <div className="node brain" style={at({ x: 0, y: 0 })}>
           <div className="eyebrow">Team project</div>
           <div className="title">{d.project.name}</div>
           {d.project.brief && <p className="brief">{d.project.brief}</p>}
-          <div className="split"><span>🤝 {locked} agreed decision{locked === 1 ? "" : "s"}</span><span>📅 {dueLabel(d.project.due_date)}</span></div>
+          <div className="split"><span>✅ {done} of {d.tasks.length} done</span><span>🤝 {locked} agreed</span><span>📅 {dueLabel(d.project.due_date)}</span></div>
         </div>
-        {nodes.map(({ m, x, y, task }) => {
-          const online = Date.now() - Date.parse(m.last_seen_at) < 5 * 60_000;
+        {d.tasks.map((t) => {
+          const o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
+          const mine = o?.id === d.me.id;
+          const online = o && Date.now() - Date.parse(o.last_seen_at) < 5 * 60_000;
           return (
-            <div key={m.id} className={`node member ${m.id === d.me.id ? "mine" : ""}`} style={{ left: x, top: y }}>
-              <div className="mhead">
-                <span className="avatar" style={{ background: m.color }}>{m.name[0]?.toUpperCase()}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 500 }}>{m.name}{m.id === d.me.id && <span className="you">you</span>}</div>
-                  <div className="small">uses {m.ai_tool}</div>
-                </div>
-                <Dot color={online ? "var(--ok)" : "var(--border)"} title={online ? "Active now" : `Seen ${timeAgo(m.last_seen_at)}`} />
+            <div key={t.id} className={`node task-node ${mine ? "mine" : ""} ${dragging === t.id ? "dragging" : ""}`} style={at(spot(t.id))} {...handlers(t.id)}>
+              <div className="task-node-top"><strong className={t.status === "done" ? "strike" : ""}>{t.title}</strong><Chip status={t.status} /></div>
+              <div className="task-node-owner">
+                {o ? <>
+                  <span className="avatar sm" style={{ background: o.color }}>{o.name[0]?.toUpperCase()}</span>
+                  <span className="small">{mine ? "You" : o.name} · {o.ai_tool}</span>
+                  <Dot color={online ? "var(--ok)" : "var(--border)"} title={online ? "Active now" : `Seen ${timeAgo(o.last_seen_at)}`} />
+                </> : <span className="small">Up for grabs</span>}
               </div>
-              <div className="now">{task ? <><span>{task.title}</span><Chip status={task.status} /></> : <span className="small">Not working on anything yet</span>}</div>
+              <div className="acts">
+                {!o && <button className="btn sm" onClick={() => a.claim(t)}>Claim</button>}
+                {mine && t.status !== "doing" && <button className="ghost sm" onClick={() => a.status(t, "doing")}>{t.status === "done" ? "Reopen" : "Start"}</button>}
+                {mine && t.status !== "done" && <button className="ghost sm" onClick={() => a.status(t, "done")}>Done</button>}
+              </div>
             </div>
           );
         })}
-        {visibleFiles.map((f, i) => (
-          <FileCard key={f.id} file={f} slug={d.slug} className="node file-node"
-            style={{ left: cx + (i - (visibleFiles.length - 1) / 2) * 285, top: H + 103 }}
-            subtitle={d.tasks.find((task) => task.id === f.task_id)?.title ?? "Project file"} openFile={openFile} />
+        {files.map((f) => (
+          <div key={f.id} className={dragging === f.id ? "dragging" : undefined} {...handlers(f.id)}>
+            <FileCard file={f} slug={d.slug} className="node file-node" style={at(spot(f.id))}
+              subtitle={d.tasks.find((task) => task.id === f.task_id)?.title ?? "Project file"} openFile={openFile} />
+          </div>
         ))}
       </div>
     </div>

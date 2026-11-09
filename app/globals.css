@@ -165,7 +165,7 @@ textarea.input { resize: vertical; }
 .task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
 .task.mine { border-color: rgb(232 116 59 / .4); }
 .task .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.task .strike { color: var(--muted); text-decoration: line-through; }
+.task .strike, .task-node .strike { color: var(--muted); text-decoration: line-through; }
 .task .acts { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 .owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .private { background: var(--soft); border-radius: 12px; padding: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
@@ -201,3 +201,16 @@ textarea.input { resize: vertical; }
 .palette .item.sel { background: var(--soft); }
 .palette .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .palette .foot { display: flex; gap: 12px; border-top: 1px solid var(--border); padding: 8px 16px; font-size: 12px; color: var(--muted); }
+
+/* Board: task cells and free file nodes */
+.task-node { width: 230px; padding: 12px 14px; box-shadow: var(--shadow-soft); cursor: grab; touch-action: none; user-select: none; }
+.task-node.mine { border-color: rgb(232 116 59 / .6); box-shadow: 0 0 0 4px rgb(232 116 59 / .1), var(--shadow-soft); }
+.task-node-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 13px; }
+.task-node-top strong { font-weight: 500; overflow-wrap: anywhere; }
+.task-node-owner { display: flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 22px; }
+.task-node-owner .small { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-node .acts:not(:empty) { margin-top: 10px; display: flex; gap: 6px; }
+.avatar.sm { width: 22px; height: 22px; font-size: 11px; }
+.file-node { cursor: grab; touch-action: none; user-select: none; }
+.dragging .file-node, .task-node.dragging { cursor: grabbing; z-index: 2; box-shadow: var(--shadow-lift); }
+.board-reset { position: absolute; top: 12px; right: 12px; z-index: 3; background: var(--panel); }
