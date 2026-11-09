@@ -122,6 +122,7 @@ export default function CreatePage() {
   return (
     <main className="landing">
       <Aurora className="canvas-aurora" />
+      <a href="/" className="igloo-wordmark" aria-label="Igloo home">igloo.</a>
       <div className="lp-grid">
         <section className="lp-hero">
           <h1>One Shared Brain For Your Teams&apos; AIs</h1>
