@@ -35,7 +35,16 @@ a { color: inherit; }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
 textarea.input { resize: vertical; }
 .label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; }
-select.hand { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px 6px; font-size: 12px; color: var(--muted); }
+.dropdown { position: relative; min-width: 0; }
+.dropdown-trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 12px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; text-align: left; }
+.dropdown-trigger span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown.compact .dropdown-trigger { padding: 4px 8px; }
+.dropdown-chevron { width: 7px; height: 7px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); margin: -3px 2px 0; flex-shrink: 0; }
+.dropdown-trigger[aria-expanded="true"] { border-color: var(--accent); }
+.dropdown-options { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; max-height: 180px; overflow-y: auto; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow-lift); }
+.dropdown.compact .dropdown-options { left: auto; min-width: 140px; }
+.dropdown-options button { display: block; width: 100%; border: 0; background: transparent; border-radius: 8px; padding: 8px; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
+.dropdown-options button:hover, .dropdown-options button:focus-visible, .dropdown-options button[aria-selected="true"] { background: var(--accent-soft); }
 .pill { border-radius: 999px; background: var(--soft); padding: 4px 10px; font-size: 12px; color: var(--muted); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pills button { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); }
@@ -51,6 +60,14 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .page h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .page .lead { margin: 4px 0 20px; color: var(--muted); }
 .form { display: grid; gap: 16px; }
+.optional { font-weight: 400; color: var(--muted); }
+.task-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; padding: 6px 8px; cursor: text; }
+.task-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
+.task-input input { flex: 1; min-width: 140px; border: 0; outline: none; background: transparent; padding: 4px; font-size: 12px; }
+.task-pill { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 3px 4px 3px 10px; font-size: 12px; }
+.task-pill span { overflow-wrap: anywhere; }
+.task-pill button { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; }
+.task-pill button:hover, .task-pill button:focus-visible { background: rgb(232 116 59 / .18); color: var(--accent); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
 .hint { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
@@ -92,14 +109,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .member.mine { border-color: rgb(232 116 59 / .6); box-shadow: 0 0 0 4px rgb(232 116 59 / .1), var(--shadow-soft); }
 .eyebrow { font-size: 12px; font-weight: 500; color: var(--accent); margin-bottom: 4px; }
 .brief { margin: 4px 0 0; font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.bars { margin-top: 12px; display: grid; gap: 4px; }
-.bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-.bar .lbl { width: 80px; color: var(--muted); }
-.track { position: relative; height: 8px; flex: 1; border-radius: 999px; background: var(--soft); }
-.fill { height: 8px; border-radius: 999px; transition: width .3s; }
-.num { width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .split { margin-top: 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--muted); }
-.divider { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
 .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #fff; font-weight: 600; font-size: 14px; flex-shrink: 0; }
 .mhead { display: flex; align-items: center; gap: 8px; }
 .you { border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; padding: 0 6px; margin-left: 6px; }
@@ -137,12 +147,6 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .file-actions, .task-files { margin-top: 10px; }
 .task-files button { max-width: 100%; overflow-wrap: anywhere; text-align: left; }
 .file-source { background: var(--soft); border-radius: 12px; padding: 12px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 400px; overflow-y: auto; }
-
-/* Fairness */
-.fair-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.fair-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
-.fair-row .name { width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mark { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: rgb(43 38 34 / .25); }
 
 /* List view */
 .list { height: 100%; overflow-y: auto; padding: 16px; }

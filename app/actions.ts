@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import * as store from "@/lib/store";
-import { LIMIT, PHASES, isToken, parseTaskLines, parseUpdates, type Member, type Phase, type Result, type Status } from "@/lib/core";
+import { LIMIT, clean, isToken, parseUpdates, type Member, type Result, type Status } from "@/lib/core";
 
 type FormState = { error?: string } | undefined;
 const cookieName = (slug: string) => `gm_${slug}`;
@@ -23,8 +23,10 @@ async function ip() {
 export async function createProject(_: FormState, f: FormData): Promise<FormState> {
   if (!(await store.rateLimit(`create:${await ip()}`, 10, 3_600_000))) return { error: "Too many new projects. Try again in an hour." };
   const r = await store.createProject({
-    name: String(f.get("name") ?? ""), context: String(f.get("context") ?? ""), due: String(f.get("due") ?? ""),
-    brief: String(f.get("brief") ?? ""), tasks: parseTaskLines(String(f.get("tasks") ?? "").slice(0, LIMIT.taskText)),
+    name: String(f.get("name") ?? ""), context: "", due: "", brief: String(f.get("brief") ?? ""),
+    // One form entry per task pill. Titles are taken as typed, so a task called "Research" stays a task.
+    tasks: f.getAll("task").map((t) => clean(t, LIMIT.title)).filter(Boolean).slice(0, LIMIT.tasksOnCreate)
+      .map((title) => ({ title, phase: "build" as const })),
   });
   if ("error" in r) return { error: r.error };
   redirect(`/p/${r.slug}?code=${r.code}`);
@@ -59,16 +61,12 @@ async function asMember<T>(slug: unknown, fn: (me: Member) => Promise<T>): Promi
 }
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-export async function copyDeviceLink(slug: string): Promise<Result & { path?: string; productionHost?: string }> {
+export async function copyDeviceLink(slug: string): Promise<Result & { path?: string }> {
   return asMember(slug, async (me) => {
     if (!(await store.rateLimit(`device-link:${me.id}`, 10, 600_000))) return { error: "Wait a few minutes before making another link" };
     const result = await store.createDeviceCode(me);
     if (!result.code) return { error: result.error };
-    const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-    return {
-      path: `/p/${slug}?rejoin=1#device=${result.code}`,
-      productionHost: host && /^[a-z0-9.-]+$/i.test(host) ? host : undefined,
-    };
+    return { path: `/p/${slug}?rejoin=1#device=${result.code}` };
   });
 }
 
@@ -94,8 +92,8 @@ export async function unclaim(slug: string, taskId: string): Promise<Result> {
 export async function reassign(slug: string, taskId: string, memberId: string): Promise<Result> {
   return asMember(slug, (me) => store.reassignTask(me, str(taskId), str(memberId)));
 }
-export async function addTask(slug: string, title: string, phase: Phase): Promise<Result> {
-  return asMember(slug, (me) => store.addTask(me, str(title), PHASES.includes(phase) ? phase : "build"));
+export async function addTask(slug: string, title: string): Promise<Result> {
+  return asMember(slug, (me) => store.addTask(me, str(title), "build"));
 }
 export async function shareFile(_: Result, form: FormData): Promise<Result> {
   return asMember(form.get("slug"), async (me) => {

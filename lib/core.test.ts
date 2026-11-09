@@ -5,8 +5,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  parseTaskLines, parseUpdates, matchTask, fairness, buildDigest, buildAgentText, isDate,
-  type Member, type MemberPublic, type Task,
+  parseTaskLines, parseUpdates, matchTask, buildDigest, buildAgentText, isDate,
+  type Member, type Task,
 } from "./core";
 
 const member = (id: string, name: string): Member => ({
@@ -18,12 +18,9 @@ const task = (title: string, owner: string | null = null, status: Task["status"]
   owner_member_id: owner, status, claimed_at: null, done_at: null, ...extra,
 });
 
-test("parseTaskLines: phases, bullets, numbers, cap", () => {
-  const r = parseTaskLines("Survey\nResearch\n- Interviews\n## Build:\n1. Prototype\n* [ ] Pricing\nPRESENT\n2) Deck\n\n");
-  assert.deepEqual(r, [
-    { title: "Survey", phase: "build" }, { title: "Interviews", phase: "research" },
-    { title: "Prototype", phase: "build" }, { title: "Pricing", phase: "build" }, { title: "Deck", phase: "present" },
-  ]);
+test("parseTaskLines: flat list, bullets, numbers, cap", () => {
+  const r = parseTaskLines("Survey\nResearch\n- Interviews\n1. Prototype\n* [ ] Pricing\nPresent\n2) Deck\n\n");
+  assert.deepEqual(r.map((task) => task.title), ["Survey", "Research", "Interviews", "Prototype", "Pricing", "Present", "Deck"]);
   assert.equal(parseTaskLines(Array.from({ length: 150 }, (_, i) => `t${i}`).join("\n")).length, 100);
 });
 
@@ -58,25 +55,16 @@ test("matchTask: exact, case and punctuation, unique contains, ambiguous", () =>
   assert.equal(matchTask(ts, ""), undefined);
 });
 
-test("fairness: behind means no tasks or under half the fair share", () => {
-  const ms: MemberPublic[] = [member("a", "A"), member("b", "B"), member("c", "C"), member("d", "D")];
-  const ts = [task("1", "a", "done"), task("2", "a", "done"), task("3", "a", "done"), task("4", "b", "done"), task("5", "c", "doing")];
-  const f = fairness(ms, ts);
-  assert.equal(f.total, 4);
-  assert.equal(f.fair, 0.25);
-  assert.deepEqual(f.rows.map((r) => r.behind), [false, false, true, true]);
-});
-
-test("buildDigest: empty states and working-on suffix", () => {
+test("buildDigest: task statuses without contribution scores", () => {
   const ms = [member("a", "Ann"), member("b", "Ben")];
   const empty = buildDigest({ name: "P", due_date: null }, ms, [], "http://x/p/s");
   assert.match(empty, /Done today\n- Nothing yet/);
   assert.match(empty, /In progress\n- None/);
-  assert.match(empty, /Ann: no tasks claimed yet/);
   const d = buildDigest({ name: "P", due_date: null }, ms,
     [task("Deck", "a", "done", { done_at: new Date().toISOString() }), task("Proto", "b", "doing"), task("Free")], "http://x/p/s");
   assert.match(d, /Done today\n- Ann: Deck/);
-  assert.match(d, /Ben: 0% of done work, fair share is 50% \(working on Proto\)/);
+  assert.match(d, /In progress\n- Ben: Proto/);
+  assert.doesNotMatch(d, /fair share|who is behind/i);
   assert.match(d, /Unclaimed\n- Free/);
 });
 

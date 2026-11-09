@@ -52,16 +52,13 @@ export const publicMember = ({ id, project_id, name, ai_tool, color, last_seen_a
   ({ id, project_id, name, ai_tool, color, last_seen_at });
 
 // ---------- Task list on create ----------
-// "Research", "## Build:" and similar lines start a phase. Bullets and numbering are stripped.
+// Every non-empty line is a task. The stored phase is retained for existing clients.
 export function parseTaskLines(text: string): { title: string; phase: Phase }[] {
   const out: { title: string; phase: Phase }[] = [];
-  let phase: Phase = "build";
   for (const raw of String(text ?? "").split(/\r?\n/)) {
     const line = raw.replace(/^\s*(?:(?:#+|[-*•]|\d+[.)]|\[[ x]?\])\s*)+/i, "").replace(/\*\*/g, "").trim();
-    const head = line.replace(/[:\s]+$/, "").toLowerCase();
-    if ((PHASES as string[]).includes(head)) { phase = head as Phase; continue; }
     const title = clean(line, LIMIT.title);
-    if (title && out.length < LIMIT.tasksOnCreate) out.push({ title, phase });
+    if (title && out.length < LIMIT.tasksOnCreate) out.push({ title, phase: "build" });
   }
   return out;
 }
@@ -109,20 +106,6 @@ export function matchTask<T extends { title: string }>(tasks: T[], title: string
   return loose.length === 1 ? loose[0] : undefined;
 }
 
-// ---------- Fairness ----------
-export function fairness(members: MemberPublic[], tasks: Task[]) {
-  const doneTasks = tasks.filter((t) => t.status === "done" && t.owner_member_id);
-  const total = doneTasks.length;
-  const fair = 1 / Math.max(members.length, 1);
-  const rows = members.map((member) => {
-    const owned = tasks.filter((t) => t.owner_member_id === member.id).length;
-    const done = doneTasks.filter((t) => t.owner_member_id === member.id).length;
-    const share = total ? done / total : 0;
-    return { member, owned, done, share, behind: owned === 0 || (total > 0 && share < fair / 2) };
-  });
-  return { total, fair, rows };
-}
-
 // ---------- Dates ----------
 const DAY = 86_400_000;
 const localDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
@@ -146,24 +129,15 @@ export function buildDigest(project: ProjectLite, members: MemberPublic[], tasks
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const list = (xs: string[], empty: string) => (xs.length ? xs : [empty]).map((x) => `- ${x}`);
   const done = tasks.filter((t) => t.status === "done");
-  const f = fairness(members, tasks);
-  const pct = Math.round(f.fair * 100);
   const date = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return [
     `${project.name} · update ${date}${project.due_date ? ` · ${dueLabel(project.due_date, now)}` : ""}`,
-    `${done.length} of ${tasks.length} tasks done`,
     "", "Done today",
     ...list(done.filter((t) => t.done_at && Date.parse(t.done_at) >= midnight).map((t) => `${name(t.owner_member_id)}: ${t.title}`), "Nothing yet"),
     "", "In progress",
     ...list(tasks.filter((t) => t.status === "doing").map((t) => `${name(t.owner_member_id)}: ${t.title}`), "None"),
     "", "Unclaimed",
     ...list(tasks.filter((t) => !t.owner_member_id).map((t) => t.title), "None"),
-    "", "Who is behind",
-    ...list(f.rows.filter((r) => r.behind).map((r) => {
-      if (!r.owned) return `${r.member.name}: no tasks claimed yet`;
-      const doing = tasks.find((t) => t.owner_member_id === r.member.id && t.status === "doing");
-      return `${r.member.name}: ${Math.round(r.share * 100)}% of done work, fair share is ${pct}%${doing ? ` (working on ${doing.title})` : ""}`;
-    }), `Nobody. Everyone is near their fair share of ${pct}%`),
     "", `Open the group: ${url}`,
   ].join("\n");
 }
@@ -180,11 +154,10 @@ const shellQuote = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 export function buildAgentText(c: AgentContext, origin: string, now = new Date()) {
   const { project: p, me } = c;
   const name = (id: string | null) => c.members.find((m) => m.id === id)?.name ?? "Someone";
-  const line = (t: Task) => `- [${t.status}] ${t.title} (${t.phase})`;
+  const line = (t: Task) => `- [${t.status}] ${t.title}`;
   const mine = c.tasks.filter((t) => t.owner_member_id === me.id);
   const open = c.tasks.filter((t) => !t.owner_member_id);
   const locked = c.decisions.filter((d) => d.approved_by);
-  const done = c.tasks.filter((t) => t.status === "done").length;
   const example = (mine.find((t) => t.status !== "done") ?? open[0] ?? mine[0])?.title ?? "<task title>";
   const out = [
     `# Igloo context for ${me.name} (${me.ai_tool})`, "",
@@ -192,8 +165,7 @@ export function buildAgentText(c: AgentContext, origin: string, now = new Date()
     `It is read only and generated at ${now.toISOString()}. Reload this link to get fresh data.`, "",
     `Project: ${p.name}`,
     ...(p.course_or_context ? [`Context: ${p.course_or_context}`] : []),
-    `Due: ${p.due_date ? `${p.due_date} (${dueLabel(p.due_date, now)})` : "no due date"}`,
-    `Progress: ${done} of ${c.tasks.length} tasks done`, "",
+    `Due: ${p.due_date ? `${p.due_date} (${dueLabel(p.due_date, now)})` : "no due date"}`, "",
     "## Brief", p.brief || "(no brief)", "",
     `## ${me.name}'s tasks`, ...(mine.length ? mine.map(line) : ["- None yet. Pick an unclaimed task below."]), "",
     "## Unclaimed tasks", ...(open.length ? open.map(line) : ["- None"]), "",
@@ -234,7 +206,7 @@ export function buildAgentText(c: AgentContext, origin: string, now = new Date()
   return out.join("\n") + "\n";
 }
 
-// Public origin of a request, behind proxies too (Vercel sets x-forwarded-*).
+// Public origin of a request, behind proxies too (Railway sets x-forwarded-*).
 export function originOf(h: { get(name: string): string | null }) {
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";

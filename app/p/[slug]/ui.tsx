@@ -3,14 +3,14 @@
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
+import { Dropdown } from "./dropdown";
 import { FileThumbnail } from "./file-thumbnail";
 import {
-  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, PHASES, buildDigest, dueLabel, fairness, fileUrl, isToken, matchTask, parseUpdates, timeAgo,
-  type Activity, type Decision, type MemberPublic, type Phase, type ProjectFile, type Result, type Status, type Task,
+  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, buildDigest, dueLabel, fileUrl, isToken, matchTask, parseUpdates, timeAgo,
+  type Activity, type Decision, type MemberPublic, type ProjectFile, type Result, type Status, type Task,
 } from "@/lib/core";
 
 const STATUS_LABEL: Record<Status, string> = { todo: "To do", doing: "In progress", done: "Done" };
-const PHASE_LABEL: Record<Phase, string> = { research: "🔎 Research", build: "🛠️ Build", present: "🎤 Present" };
 const Chip = ({ status }: { status: Status }) => <span className={`chip ${status}`}>{STATUS_LABEL[status]}</span>;
 const Dot = ({ color, title }: { color: string; title?: string }) => <span className="dot" style={{ background: color }} title={title} />;
 
@@ -130,7 +130,7 @@ function useActions(d: AppData, toast: (t: string, tone?: Toast["tone"]) => void
     status: (t: Task, s: Status) => run(A.setStatus(d.slug, t.id, s)),
     unclaim: (t: Task) => run(A.unclaim(d.slug, t.id)),
     reassign: (t: Task, m: string) => run(A.reassign(d.slug, t.id, m)),
-    addTask: (title: string, p: Phase) => run(A.addTask(d.slug, title, p)),
+    addTask: (title: string) => run(A.addTask(d.slug, title)),
     propose: (text: string) => run(A.proposeDecision(d.slug, text)),
     approve: (id: string) => run(A.approveDecision(d.slug, id)),
     copyDigest: () => copy(buildDigest(d.project, d.members, d.tasks, groupUrl())).then(() => toast("Update copied. Paste it in your group chat.", "ok")),
@@ -193,7 +193,7 @@ export function App(d: AppData) {
     try {
       const result = await A.copyDeviceLink(d.slug);
       if (!("path" in result) || !result.path) { toast(result.error ?? "Could not create a rejoin link", "bad"); return; }
-      const link = new URL(result.path, result.productionHost ? `https://${result.productionHost}` : location.origin).href;
+      const link = new URL(result.path, location.origin).href;
       try {
         await copy(link);
         toast("Rejoin link copied. It works once for 10 minutes.", "ok");
@@ -203,7 +203,6 @@ export function App(d: AppData) {
     } finally { setCopyingDevice(false); }
   };
   const ctx = { d, byId, a, openFile };
-  const done = d.tasks.filter((t) => t.status === "done").length;
   const waiting = d.decisions.some((x) => !x.approved_by);
 
   return (
@@ -213,7 +212,6 @@ export function App(d: AppData) {
           <div className="ctx">{[d.project.course_or_context, d.project.due_date && dueLabel(d.project.due_date)].filter(Boolean).join(" · ") || "Igloo"}</div>
           <div className="title">{d.project.name}</div>
         </div>
-        <span className="pill">{done} of {d.tasks.length} done</span>
         <div className="hright">
           <div className="seg" role="group" aria-label="View">
             {(["board", "list"] as const).map((v) => <button key={v} className={view === v ? "on" : ""} aria-pressed={view === v} onClick={() => setView(v)}>{v === "board" ? "Board" : "List"}</button>)}
@@ -244,7 +242,6 @@ export function App(d: AppData) {
           {view === "board" ? <Board d={d} openFile={openFile} /> : (
             <div className="list dots">
               <div className="stack">
-                <div className="card"><Fairness members={d.members} tasks={d.tasks} /></div>
                 <div className="card"><TaskList {...ctx} /></div>
               </div>
             </div>
@@ -287,7 +284,7 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
     const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
     const mine = d.tasks.filter((t) => t.owner_member_id === m.id);
     const task = mine.find((t) => t.status === "doing") ?? mine.find((t) => t.status === "todo") ?? mine.findLast((t) => t.status === "done");
-    return { m, x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry, task, mine, active: mine.some((t) => t.status === "doing") };
+    return { m, x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry, task, active: mine.some((t) => t.status === "doing") };
   });
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
@@ -313,24 +310,10 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
           <div className="eyebrow">Team project</div>
           <div className="title">{d.project.name}</div>
           {d.project.brief && <p className="brief">{d.project.brief}</p>}
-          <div className="bars">
-            {PHASES.map((ph) => {
-              const ts = d.tasks.filter((t) => t.phase === ph), dn = ts.filter((t) => t.status === "done").length;
-              return (
-                <div key={ph} className="bar">
-                  <span className="lbl">{PHASE_LABEL[ph]}</span>
-                  <div className="track"><div className="fill" style={{ width: `${ts.length ? (dn / ts.length) * 100 : 0}%`, background: "var(--accent)" }} /></div>
-                  <span className="num">{dn}/{ts.length}</span>
-                </div>
-              );
-            })}
-          </div>
           <div className="split"><span>🤝 {locked} agreed decision{locked === 1 ? "" : "s"}</span><span>📅 {dueLabel(d.project.due_date)}</span></div>
-          <div className="divider"><Fairness members={d.members} tasks={d.tasks} /></div>
         </div>
-        {nodes.map(({ m, x, y, task, mine }) => {
+        {nodes.map(({ m, x, y, task }) => {
           const online = Date.now() - Date.parse(m.last_seen_at) < 5 * 60_000;
-          const dn = mine.filter((t) => t.status === "done").length;
           return (
             <div key={m.id} className={`node member ${m.id === d.me.id ? "mine" : ""}`} style={{ left: x, top: y }}>
               <div className="mhead">
@@ -342,7 +325,6 @@ function Board({ d, openFile }: { d: AppData; openFile: (id: string) => void }) 
                 <Dot color={online ? "var(--ok)" : "var(--border)"} title={online ? "Active now" : `Seen ${timeAgo(m.last_seen_at)}`} />
               </div>
               <div className="now">{task ? <><span>{task.title}</span><Chip status={task.status} /></> : <span className="small">Not working on anything yet</span>}</div>
-              <div className="small" style={{ marginTop: 8 }}>{mine.length ? `${dn} of ${mine.length} task${mine.length === 1 ? "" : "s"} done` : "No tasks yet"}</div>
             </div>
           );
         })}
@@ -371,6 +353,7 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
   d: AppData; byId: Map<string, MemberPublic>; selected: string | null; openFile: (id: string) => void; back: () => void;
 }) {
   const [state, action, pending] = useActionState(A.shareFile, {});
+  const [linkedTask, setLinkedTask] = useState("");
   const file = d.files.find((entry) => entry.id === selected);
   const titleOf = (entry: ProjectFile) => d.tasks.find((task) => task.id === entry.task_id)?.title ?? "Project file";
   if (file) return (
@@ -401,10 +384,12 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
           const file = input.files?.[0];
           input.setCustomValidity(file && file.size > FILE_LIMIT ? "Choose a file up to 2 MB" : "");
         }} /></label>
-        <label className="label">Link to a task<select className="input" name="task" defaultValue="">
-          <option value="">Project file (no task)</option>
-          {d.tasks.map((task) => <option value={task.id} key={task.id}>{task.title}</option>)}
-        </select></label>
+        <div>
+          <span className="label">Link to a task</span>
+          <input type="hidden" name="task" value={linkedTask} />
+          <Dropdown label="Link to a task" placeholder="Project file (no task)" value={linkedTask} onChange={setLinkedTask}
+            options={[{ value: "", label: "Project file (no task)" }, ...d.tasks.map((task) => ({ value: task.id, label: task.title }))]} />
+        </div>
         <p className="small">Source and HTML, PDF, PowerPoint and Word · up to 2 MB each</p>
         {state.error && <p className="err" role="alert">{state.error}</p>}
         {state.ok && <p className="small" role="status">{state.ok}</p>}
@@ -433,69 +418,40 @@ function FileText({ url }: { url: string }) {
     text === null ? <p className="small">Loading preview…</p> : <pre className="file-source"><code>{text}</code></pre>;
 }
 
-// ---------- Fairness ----------
-function Fairness({ members, tasks }: { members: MemberPublic[]; tasks: Task[] }) {
-  const f = fairness(members, tasks);
-  const pct = Math.round(f.fair * 100);
-  return (
-    <div>
-      <div className="fair-head"><span style={{ fontWeight: 600 }}>Who has done what</span><span className="small">{f.total ? `fair share is ${pct}% each` : "nothing finished yet"}</span></div>
-      {f.rows.map((r) => (
-        <div key={r.member.id} className="fair-row">
-          <span className="name">{r.member.name}</span>
-          <div className="track"><div className="fill" style={{ width: `${r.share * 100}%`, background: r.member.color }} /><div className="mark" style={{ left: `${pct}%` }} title="Fair share" /></div>
-          <span className="num">{Math.round(r.share * 100)}%</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ---------- Tasks ----------
 function TaskList({ d, byId, a, openFile }: Ctx) {
   const [title, setTitle] = useState("");
-  const [phase, setPhase] = useState<Phase>("build");
   return (
     <div>
-      {PHASES.map((ph) => {
-        const ts = d.tasks.filter((t) => t.phase === ph);
-        return (
-          <div key={ph} className="sec">
-            <div className="sec-t">{PHASE_LABEL[ph]} · {ts.filter((t) => t.status === "done").length} of {ts.length} done</div>
-            {!ts.length && <div className="small">Nothing here yet</div>}
-            {ts.map((t) => {
-              const o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
-              const mine = o?.id === d.me.id;
-              return (
-                <div key={t.id} className={`task ${mine ? "mine" : ""}`}>
-                  <div className="top"><span className={t.status === "done" ? "strike" : ""}>{t.title}</span><Chip status={t.status} /></div>
-                  <div className="acts">
-                    <span className="owner">{o ? <><Dot color={o.color} />{mine ? "You" : o.name}</> : "Up for grabs"}</span>
-                    {!o && <button className="btn sm" onClick={() => a.claim(t)}>Claim</button>}
-                    {mine && t.status !== "doing" && <button className="ghost sm" onClick={() => a.status(t, "doing")}>{t.status === "done" ? "Reopen" : "Start"}</button>}
-                    {mine && t.status !== "done" && <button className="ghost sm" onClick={() => a.status(t, "done")}>Done</button>}
-                    {mine && <button className="linkbtn" onClick={() => a.unclaim(t)}>Unclaim</button>}
-                    <select className="hand" value="" aria-label={`Hand ${t.title} to someone`} onChange={(e) => e.target.value && a.reassign(t, e.target.value)}>
-                      <option value="">Hand to…</option>
-                      {d.members.filter((m) => m.id !== t.owner_member_id).map((m) => <option key={m.id} value={m.id}>{m.id === d.me.id ? "Me" : m.name}</option>)}
-                    </select>
-                  </div>
-                  {d.files.some((file) => file.task_id === t.id) && <div className="wrap-row task-files">
-                    {d.files.filter((file) => file.task_id === t.id).map((file) => (
-                      <button className="ghost sm" key={file.id} onClick={() => openFile(file.id)}>📎 {file.name}</button>
-                    ))}
-                  </div>}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-      <form className="row" onSubmit={(e) => { e.preventDefault(); if (title.trim()) { a.addTask(title, phase); setTitle(""); } }}>
+      <div className="sec">
+        <div className="sec-t">Tasks</div>
+        {!d.tasks.length && <div className="small">Nothing here yet</div>}
+        {d.tasks.map((t) => {
+          const o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
+          const mine = o?.id === d.me.id;
+          return (
+            <div key={t.id} className={`task ${mine ? "mine" : ""}`}>
+              <div className="top"><span className={t.status === "done" ? "strike" : ""}>{t.title}</span><Chip status={t.status} /></div>
+              <div className="acts">
+                <span className="owner">{o ? <><Dot color={o.color} />{mine ? "You" : o.name}</> : "Up for grabs"}</span>
+                {!o && <button className="btn sm" onClick={() => a.claim(t)}>Claim</button>}
+                {mine && t.status !== "doing" && <button className="ghost sm" onClick={() => a.status(t, "doing")}>{t.status === "done" ? "Reopen" : "Start"}</button>}
+                {mine && t.status !== "done" && <button className="ghost sm" onClick={() => a.status(t, "done")}>Done</button>}
+                {mine && <button className="linkbtn" onClick={() => a.unclaim(t)}>Unclaim</button>}
+                <Dropdown compact label={`Hand ${t.title} to someone`} placeholder="Hand to…" onChange={(id) => a.reassign(t, id)}
+                  options={d.members.filter((m) => m.id !== t.owner_member_id).map((m) => ({ value: m.id, label: m.id === d.me.id ? "Me" : m.name }))} />
+              </div>
+              {d.files.some((file) => file.task_id === t.id) && <div className="wrap-row task-files">
+                {d.files.filter((file) => file.task_id === t.id).map((file) => (
+                  <button className="ghost sm" key={file.id} onClick={() => openFile(file.id)}>📎 {file.name}</button>
+                ))}
+              </div>}
+            </div>
+          );
+        })}
+      </div>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); if (title.trim()) { a.addTask(title); setTitle(""); } }}>
         <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="Add a task…" aria-label="New task" />
-        <select className="hand" style={{ borderRadius: 12 }} value={phase} onChange={(e) => setPhase(e.target.value as Phase)} aria-label="Phase">
-          {PHASES.map((p) => <option key={p} value={p}>{PHASE_LABEL[p]}</option>)}
-        </select>
         <button className="ghost sm">Add</button>
       </form>
     </div>
@@ -632,7 +588,7 @@ function Palette({ d, a, close, setView, setTab }: Ctx & { close: () => void; se
   const cmds = useMemo(() => {
     const list: { label: string; hint?: string; run: () => void }[] = [];
     for (const t of d.tasks) {
-      if (!t.owner_member_id) list.push({ label: `Claim: ${t.title}`, hint: t.phase, run: () => a.claim(t) });
+      if (!t.owner_member_id) list.push({ label: `Claim: ${t.title}`, run: () => a.claim(t) });
       if (t.owner_member_id === d.me.id && t.status === "todo") list.push({ label: `Start: ${t.title}`, hint: "mine", run: () => a.status(t, "doing") });
       if (t.owner_member_id === d.me.id && t.status !== "done") list.push({ label: `Mark done: ${t.title}`, hint: "mine", run: () => a.status(t, "done") });
     }
@@ -650,7 +606,7 @@ function Palette({ d, a, close, setView, setTab }: Ctx & { close: () => void; se
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     const hits = list.filter((c) => words.every((w) => c.label.toLowerCase().includes(w)));
     if (q.trim()) hits.push(
-      { label: `Add task: ${q.trim()}`, hint: "build", run: () => a.addTask(q, "build") },
+      { label: `Add task: ${q.trim()}`, run: () => a.addTask(q) },
       { label: `Suggest decision: ${q.trim()}`, run: () => a.propose(q) },
     );
     return hits.slice(0, 12);
