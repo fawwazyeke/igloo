@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter, JetBrains_Mono, Manrope } from "next/font/google";
+import { Inter, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 
-const sans = Geist({ subsets: ["latin"], variable: "--font-sans" });
-const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
-const boardHeading = Manrope({ subsets: ["latin"], variable: "--font-board-heading" });
-const boardSans = Inter({ subsets: ["latin"], variable: "--font-board-sans" });
-const boardMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-board-mono" });
+const heading = Manrope({ subsets: ["latin"], variable: "--font-heading" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Igloo",
@@ -15,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable} ${boardHeading.variable} ${boardSans.variable} ${boardMono.variable}`}>
+    <html lang="en" className={`${heading.variable} ${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

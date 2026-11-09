@@ -109,7 +109,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 
 /* Canvas theme. Scoped to Board and List views so the UI around them keeps its own colours.
    Teal and lime are too light for text on pale surfaces: use them as fills with ink text on top. */
-.board, .list {
+.board, .list, .landing {
   --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --lime: #A0FF77; --mint: #F2FFF0;
   --bg: #fff; --soft: #E4F6E8; --border: #C5E3D3; --dot: #C5E3D3;
   --text: var(--ink); --muted: #4A6478; --accent: var(--teal); --accent-soft: var(--soft);
@@ -128,10 +128,10 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .list .sec-t { display: flex; align-items: center; gap: 6px; }
 .list .sec-t .board-icon { width: 15px; height: 15px; }
 .list .owner .dot { background: var(--navy) !important; }
-.board .btn, .list .btn { background: var(--lime); color: var(--ink); border: 1px solid var(--ink); }
-.board .btn:hover, .list .btn:hover { filter: none; background: var(--teal); }
-.list .input:focus { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
-.board :focus-visible, .list :focus-visible { outline-color: var(--ink); }
+.board .btn, .list .btn, .landing .btn { background: var(--lime); color: var(--ink); border: 1px solid var(--ink); }
+.board .btn:hover, .list .btn:hover, .landing .btn:hover { filter: none; background: var(--teal); }
+.list .input:focus, .landing .input:focus { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.board :focus-visible, .list :focus-visible, .landing :focus-visible { outline-color: var(--ink); }
 .board .now { border-radius: 6px; }
 .list .task.mine { background: var(--mint); }
 .board .eyebrow { color: var(--muted); }
@@ -140,20 +140,24 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .board .member.mine .avatar { background: var(--lime); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .board .you { background: var(--lime); color: var(--ink); }
 .board .mhead .dot { box-shadow: 0 0 0 1px var(--ink); }
-.board .chip.doing, .list .chip.doing { background: var(--lime); color: var(--ink); }
-.board .chip.done, .list .chip.done { background: var(--teal); color: var(--ink); }
+.board .chip.doing, .list .chip.doing, .landing .chip.doing { background: var(--lime); color: var(--ink); }
+.board .chip.done, .list .chip.done, .landing .chip.done { background: var(--teal); color: var(--ink); }
 .board .mark, .list .mark { background: rgb(22 49 74 / .4); }
 /* Fairness sets member colours inline, hence !important. */
 .board .fair-row .fill, .list .fair-row .fill { background: var(--accent) !important; }
 
-/* Canvas type: Manrope for headings, Inter for body text, JetBrains Mono for short labels and numbers. */
-.board, .list { font-family: var(--font-board-sans), system-ui, sans-serif; }
-.board .title, .list .sec-t, .board .fair-head > span:first-child, .list .fair-head > span:first-child {
-  font-family: var(--font-board-heading), var(--font-board-sans), system-ui, sans-serif;
+/* Type system for the whole app: Manrope for headings, Inter (the body default) for text, JetBrains Mono for short labels and numbers. */
+h1, h2, h3, .title, .sec-t, .fair-head > span:first-child {
+  font-family: var(--font-heading), var(--font-sans), system-ui, sans-serif;
 }
+.ctx, .pill, .eyebrow, .num, .owner, .live, .ev .small, .dec-foot, .code-input, .palette .foot, .palette .item span + span {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+body .sec-t { font-size: 15px; letter-spacing: -.01em; }
+body .chip, body .live, body .ev, body .linkbtn { font-size: 12px; }
 .board .eyebrow, .board .bar, .board .split, .board .mhead .small, .board .member > .small,
 .board .num, .list .num, .list .owner {
-  font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; font-weight: 400; line-height: 1.4;
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-weight: 400; line-height: 1.4;
 }
 .board .bar .lbl { width: 88px; }
 .board .title { font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
@@ -161,15 +165,14 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .board .brief { display: block; -webkit-line-clamp: unset; font-size: 13px; line-height: 1.5; color: var(--navy); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 .board .now { font-size: 13px; line-height: 1.4; }
 .board .you { font-size: 12px; }
-.board .chip, .list .chip { font-size: 12px; }
-.list .sec-t { font-size: 15px; letter-spacing: -.01em; }
 
 /* Aurora backdrop. Each band moves by exactly one stripe, so the loop never jumps. */
 .aurora { position: relative; overflow: hidden; background: #fff; }
 .aurora-light { position: absolute; inset: 0; pointer-events: none; opacity: var(--aurora-opacity); }
 .aurora-fade .aurora-light { -webkit-mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); }
 .aurora-band {
-  position: absolute; top: -40%; left: -60%; width: 300%; height: 130%; rotate: -14deg; will-change: transform;
+  /* The vw term keeps the tilted top edge above the corner however wide the screen is. */
+  position: absolute; top: calc(-40% - 25vw); left: -60%; width: 300%; height: calc(130% + 25vw); rotate: -14deg; will-change: transform;
   background-size: calc(100% / 3) 100%; background-repeat: repeat-x;
   -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 85%); mask-image: linear-gradient(to bottom, #000 20%, transparent 85%);
 }
@@ -193,11 +196,62 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .ai-badge .board-icon, .ai-badge img { display: block; width: 20px; height: 20px; }
 .last-update { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
 .last-update > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.last-update > span:last-child { flex-shrink: 0; color: var(--muted); font-family: var(--font-board-mono), ui-monospace, monospace; }
+.last-update > span:last-child { flex-shrink: 0; color: var(--muted); font-family: var(--font-mono), ui-monospace, monospace; }
 .next-step { position: absolute; z-index: 2; top: 12px; left: 50%; translate: -50%; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 24px); padding: 8px 8px 8px 14px; border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); }
-.next-label { flex-shrink: 0; color: var(--muted); font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; }
+.next-label { flex-shrink: 0; color: var(--muted); font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; }
 .next-task { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .next-step .btn { flex-shrink: 0; }
+
+/* Front page and join page. */
+.landing { position: relative; min-height: 100dvh; overflow: hidden; color: var(--text); }
+.landing .page-inner.narrow { max-width: 440px; }
+.landing > :not(.aurora) { position: relative; }
+.landing .card { border-color: transparent; border-radius: 12px; box-shadow: var(--card-shadow); }
+.landing .avatar { background: var(--navy); color: var(--mint); font-weight: 500; }
+.landing .lead, .landing .ctx, .lp-note { color: var(--navy); }
+.landing .small { color: var(--muted); }
+.lp-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 56px; align-items: center; max-width: 1200px; min-height: 100dvh; margin: 0 auto; padding: 40px 32px; }
+.lp-hero h1 { margin: 0; font-size: clamp(36px, 4.6vw, 58px); line-height: 1.06; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.lp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 20px; }
+.lp-tools > span { margin-right: 4px; color: var(--navy); font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; }
+.lp-tool { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #fff; box-shadow: var(--card-shadow); }
+.lp-tool img, .lp-preview .ai-badge img { display: block; width: 20px; height: 20px; }
+.lp-preview { max-width: 520px; margin-top: 28px; }
+.lp-project { --soft: #D3ECDB; padding: 14px 16px; border-radius: 10px; background: var(--mint); box-shadow: var(--card-shadow); }
+.lp-project .eyebrow { color: var(--navy); font-family: var(--font-mono), ui-monospace, monospace; }
+.lp-project .title { font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
+.lp-project .bar { font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; }
+.lp-project .bar .lbl { color: var(--navy); }
+.lp-project .num { color: var(--navy); }
+.lp-members { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.lp-member { position: relative; padding: 10px; border-radius: 8px; background: #fff; box-shadow: var(--card-shadow); }
+.lp-member::before { content: ""; position: absolute; top: -22px; left: 50%; width: 1px; height: 22px; background: var(--navy); opacity: .3; }
+.lp-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.lp-task { margin: 8px 0 6px; font-size: 12px; line-height: 1.35; }
+.lp-member .chip { display: inline-block; font-size: 12px; }
+/* Same height on both sides, so the tabs don't jump when switching. */
+@media (min-width: 961px) {
+  .lp-card { display: flex; flex-direction: column; min-height: 600px; }
+  .lp-card > div:not(.lp-tabs):not([hidden]) { display: flex; flex-direction: column; flex: 1; }
+  .lp-card .form { flex: 1; align-content: space-between; }
+}
+.lp-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: 10px; background: var(--soft); }
+.lp-tabs button { padding: 10px 8px; border: 0; border-radius: 7px; background: none; color: var(--navy); font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; transition: background .15s ease-out, color .15s ease-out; }
+.lp-tabs button:hover:not(.on) { background: #D3ECDB; }
+.lp-tabs button.on { background: var(--navy); color: var(--mint); }
+@media (pointer: coarse) { .lp-tabs button { min-height: 44px; } }
+.landing .pills button.on { border-color: var(--teal); background: var(--soft); color: var(--ink); }
+.lp-ai-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.lp-ai-grid button { display: grid; place-items: center; height: 68px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--navy); font-size: 13px; font-weight: 500; transition: background .15s ease-out, border-color .15s ease-out; }
+.lp-ai-grid button:hover { border-color: var(--teal); }
+.lp-ai-grid button.on { border-color: var(--teal); background: var(--soft); box-shadow: inset 0 0 0 1px var(--teal); color: var(--ink); }
+.lp-ai-grid img { display: block; width: 30px; height: 30px; }
+.lp-join .input { padding: 15px 16px; font-size: 15px; }
+.lp-join .code-input { font-size: 20px; }
+.lp-join .btn.big { padding: 16px; font-size: 15px; }
+.lp-note { margin: 14px 0 0; text-align: center; font-size: 12px; }
+@media (max-width: 960px) { .lp-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; min-height: 0; padding: 28px 16px; } }
+@media (max-width: 560px) { .lp-preview { display: none; } .landing .two { grid-template-columns: minmax(0, 1fr); } }
 
 /* Zoom bar. Dragging the canvas only pans once someone has zoomed. */
 .board.zoomed { cursor: grab; touch-action: none; }
@@ -207,7 +261,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .zoom-bar button:hover:not(:disabled) { background: var(--soft); }
 .zoom-bar .board-icon { width: 16px; height: 16px; }
 .zoom-bar input { width: 96px; accent-color: var(--navy); cursor: pointer; }
-.zoom-pct { width: 42px; text-align: center; font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+.zoom-pct { width: 42px; text-align: center; font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
 @media (pointer: coarse) { .zoom-bar { gap: 8px; } .zoom-bar button { width: 44px; height: 44px; } }
 @media (max-width: 520px) { .zoom-bar input { display: none; } }
 
@@ -215,7 +269,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .board .member, .list .task { --lift: 0 6px 16px rgb(22 49 74 / .14); transition: translate .18s ease-out, box-shadow .18s ease-out; }
 .board .member:hover, .list .task:hover { translate: 0 -2px; box-shadow: var(--lift); }
 @property --beam { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-.board .member.working::after {
+.board .member.working::after, .lp-member.working::after {
   content: ""; position: absolute; inset: -2px; padding: 2px; border-radius: 10px; pointer-events: none;
   background: conic-gradient(from var(--beam), transparent 0 72%, var(--teal) 88%, var(--lime) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -226,7 +280,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 @media (prefers-reduced-motion: reduce) {
   .board .member, .list .task { transition: none; }
   .board .member:hover, .list .task:hover { translate: none; }
-  .board .member.working::after { animation: none; }
+  .board .member.working::after, .lp-member.working::after { animation: none; }
   .board .flow { animation: none; }
   .aurora-band { animation: none; }
 }

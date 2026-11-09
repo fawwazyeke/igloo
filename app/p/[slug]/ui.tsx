@@ -27,31 +27,43 @@ function copy(text: string) {
 export function JoinForm({ slug, name, context, code }: { slug: string; name: string; context: string; code?: string }) {
   const [state, action, pending] = useActionState(A.joinProject, undefined);
   const [tool, setTool] = useState("Claude");
+  // Controlled so a wrong code doesn't wipe them: React resets uncontrolled fields after a form action.
+  const [memberName, setMemberName] = useState("");
+  const [otherTool, setOtherTool] = useState("");
+  const [joinCode, setJoinCode] = useState(code ?? "");
   return (
-    <main className="page dots">
+    <main className="page landing">
+      <Aurora className="canvas-aurora" />
       <div className="page-inner narrow">
         <div className="ctx">{context || "Igloo"}</div>
         <h1>Join {name}</h1>
         <p className="lead">Keep using your own AI. This is where your team and your AIs meet.</p>
-        {code && <div className="hint">🎉 Your project is ready. Join it yourself first, then invite your team.</div>}
-        <form action={action} className="card form">
+        {code && <div className="hint">Your project is ready. Join it yourself first, then invite your team.</div>}
+        <form action={action} className="card form lp-join">
           <input type="hidden" name="slug" value={slug} />
           <div>
             <label className="label" htmlFor="name">Your name</label>
-            <input id="name" name="name" required maxLength={40} autoFocus className="input" placeholder="Aisha" />
+            <input id="name" name="name" required maxLength={40} autoFocus className="input" value={memberName} onChange={(e) => setMemberName(e.target.value)} placeholder="Aisha" />
           </div>
           <div>
             <span className="label">Your AI</span>
-            <div className="pills">
-              {AI_TOOLS.map((t) => <button key={t} type="button" className={tool === t ? "on" : ""} aria-pressed={tool === t} onClick={() => setTool(t)}>{t}</button>)}
+            <div className="lp-ai-grid">
+              {AI_TOOLS.map((t) => {
+                const logo = aiLogo(t);
+                return (
+                  <button key={t} type="button" className={tool === t ? "on" : ""} aria-pressed={tool === t} title={t} onClick={() => setTool(t)}>
+                    {logo ? <img src={logo} alt={t} /> : t}
+                  </button>
+                );
+              })}
             </div>
             {tool === "Other"
-              ? <input name="ai_tool" required maxLength={40} className="input" style={{ marginTop: 8 }} placeholder="Which AI?" aria-label="Which AI" />
+              ? <input name="ai_tool" required maxLength={40} className="input" style={{ marginTop: 8 }} value={otherTool} onChange={(e) => setOtherTool(e.target.value)} placeholder="Which AI?" aria-label="Which AI" />
               : <input type="hidden" name="ai_tool" value={tool} />}
           </div>
           <div>
             <label className="label" htmlFor="code">Join code</label>
-            <input id="code" name="code" required inputMode="numeric" pattern="\d{6}" maxLength={6} defaultValue={code} className="input code-input mono" placeholder="000000" />
+            <input id="code" name="code" required inputMode="numeric" pattern="\d{6}" maxLength={6} value={joinCode} onChange={(e) => setJoinCode(e.target.value)} className="input code-input" placeholder="000000" />
           </div>
           {state?.error && <p className="err">{state.error}</p>}
           <button className="btn big" disabled={pending}>{pending ? "Joining…" : "Join project"}</button>
@@ -502,7 +514,7 @@ function AiPanel({ d, a, toast }: { d: AppData; a: Actions; toast: (t: string, t
           <a className="ghost" href={`/a/${d.me.agent_token}`} target="_blank" rel="noreferrer">Preview</a>
         </div>
         <p className="help"><b>ChatGPT, Claude or Gemini app?</b> Use Copy as text and paste it in.<br /><b>Claude Code, Codex or Cursor?</b> Give it the link. It can post updates by itself.</p>
-        <button className="linkbtn" style={{ fontSize: 11, textDecoration: "underline" }}
+        <button className="linkbtn" style={{ textDecoration: "underline" }}
           onClick={() => copy(`claude mcp add --transport http igloo "${location.origin}/api/mcp?token=${d.me.agent_token}"`).then(() => toast("Copied. Run it where you use Claude Code.", "ok"))}>
           Advanced: connect Claude directly (MCP)
         </button>
