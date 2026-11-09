@@ -368,7 +368,7 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
           <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>
           {file.kind === "pdf" && <a className="ghost" href={fileUrl(file.id, d.slug) + "&preview=1"} target="_blank" rel="noreferrer">Open PDF</a>}
         </div>
-        {file.kind === "text" && <FileText key={file.id} url={fileUrl(file.id, d.slug) + "&preview=1"} />}
+        {file.kind === "text" && <FileText key={`text-${file.id}`} url={fileUrl(file.id, d.slug) + "&preview=1"} />}
         {(file.kind === "slides" || file.kind === "document") && <p className="small">Download to open it, or share a PDF copy for browser preview.</p>}
       </div>
     </section>

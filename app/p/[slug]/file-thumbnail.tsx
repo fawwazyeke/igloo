@@ -3,7 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { FILE_LABEL, fileUrl, type ProjectFile } from "@/lib/core";
 
-type Preview = { image: string } | { markup: string };
+type Preview = { image: string } | { markup: string } | { snippet: string };
+
+// The first lines of a source or text file, so the tile shows what's inside.
+function snippetOf(text: string) {
+  const lines = text.replace(/\r\n?/g, "\n").replace(/^\s*\n/, "").split("\n").slice(0, 14);
+  const snippet = lines.map((line) => line.replace(/\t/g, "  ").trimEnd().slice(0, 80)).join("\n").trimEnd();
+  return snippet || null;
+}
 
 async function renderPdf(data: ArrayBuffer, signal: AbortSignal) {
   const pdf = await import("pdfjs-dist");
@@ -54,7 +61,8 @@ export function FileThumbnail({ file, slug }: { file: ProjectFile; slug: string 
   const { id, kind, name } = file;
   const isHtml = kind === "text" && /\.html$/i.test(name);
   const isOffice = kind === "slides" || kind === "document";
-  const supported = isHtml || isOffice || kind === "pdf";
+  const isSource = kind === "text" && !isHtml;
+  const supported = isHtml || isOffice || isSource || kind === "pdf";
   useEffect(() => {
     const element = container.current;
     if (!element || !supported || visible) return;
@@ -73,10 +81,13 @@ export function FileThumbnail({ file, slug }: { file: ProjectFile; slug: string 
     const { signal } = controller;
     let objectUrl: string | undefined;
     const run = async () => {
-      const query = isOffice ? "&thumbnail=1" : isHtml ? "&preview=1" : "";
+      const query = isOffice ? "&thumbnail=1" : kind === "text" ? "&preview=1" : "";
       const response = await fetch(fileUrl(id, slug) + query, { signal });
       if (!response.ok) return;
-      if (isHtml) {
+      if (isSource) {
+        const snippet = snippetOf(await response.text());
+        if (snippet && !signal.aborted) setPreview({ snippet });
+      } else if (isHtml) {
         const markup = await renderHtml(await response.text());
         if (markup && !signal.aborted) setPreview({ markup });
       } else if (kind === "pdf") {
@@ -95,12 +106,14 @@ export function FileThumbnail({ file, slug }: { file: ProjectFile; slug: string 
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [id, isHtml, isOffice, kind, slug, visible]);
+  }, [id, isHtml, isOffice, isSource, kind, slug, visible]);
   return (
     <span className="file-thumb" ref={container} aria-hidden="true" data-thumbnail={preview ? "ready" : "fallback"}>
       {preview ? "image" in preview
         ? <img src={preview.image} alt="" draggable={false} onError={() => setPreview(null)} />
-        : <iframe title="Static HTML thumbnail" srcDoc={preview.markup} sandbox="" tabIndex={-1} />
+        : "snippet" in preview
+          ? <pre className="file-thumb-snippet">{preview.snippet}</pre>
+          : <iframe title="Static HTML thumbnail" srcDoc={preview.markup} sandbox="" tabIndex={-1} />
         : <span className="file-thumb-label">{isHtml ? "HTML" : FILE_LABEL[kind]}</span>}
     </span>
   );
