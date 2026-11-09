@@ -1,25 +1,25 @@
 // Storage and every write rule. Server only. The UI (server actions), agent POST and MCP all call these.
-// Backend: a local JSON file. Each change is one synchronous read, modify, write, so nothing can run
-// between a check and its write inside one Node process (claims are atomic).
-// Postgres comes later behind the same async functions (docs/PLAN.md, milestone B).
+// PostgreSQL serializes writes per project. Local development uses a synchronous JSON write.
 import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { empty, loadActivityId, loadProject, loadSession, projectTransaction, type DB, type Selector } from "./postgres";
 import {
   COLORS, LIMIT, PHASES, clean, cleanText, isCode, isDate, isToken, matchTask, publicMember,
   type Activity, type AgentContext, type Decision, type Member, type Note, type Phase,
   type Project, type Result, type Status, type Task, type UpdateBlock,
 } from "./core";
 
-type DB = { projects: Project[]; members: Member[]; tasks: Task[]; decisions: Decision[]; notes: Note[]; activity: Activity[]; seq: number };
-const empty = (): DB => ({ projects: [], members: [], tasks: [], decisions: [], notes: [], activity: [], seq: 0 });
 const file = () => resolve(process.env.IGLOO_DATA_FILE ?? "data/db.json");
 
-function load(): DB {
+function loadFile(): DB {
   try { return { ...empty(), ...JSON.parse(readFileSync(file(), "utf8")) }; } catch { return empty(); }
 }
-function tx<T>(fn: (db: DB) => T): T {
-  const db = load();
+const load = (by: Selector) => process.env.DATABASE_URL ? loadProject(by) : loadFile();
+
+function tx<T>(by: Selector, fn: (db: DB) => T): T | Promise<T> {
+  if (process.env.DATABASE_URL) return projectTransaction(by, fn);
+  const db = loadFile();
   const out = fn(db);
   const f = file();
   mkdirSync(dirname(f), { recursive: true });
@@ -57,7 +57,7 @@ export async function rateLimit(key: string, max: number, windowMs: number) {
 
 // ---------- Reads ----------
 export async function getBoard(slug: string) {
-  const db = load();
+  const db = await load({ slug });
   const project = db.projects.find((p) => p.slug === slug);
   if (!project) return null;
   const of = <T extends { project_id: string }>(xs: T[]) => xs.filter((x) => x.project_id === project.id);
@@ -72,18 +72,28 @@ export async function getBoard(slug: string) {
 
 export async function memberBySession(slug: string, session: string | undefined): Promise<Member | null> {
   if (!isToken(session)) return null;
-  const db = load();
-  const p = db.projects.find((x) => x.slug === slug);
-  const m = p && db.members.find((x) => x.project_id === p.id && x.session_token === session);
+  let m: Member | null | undefined;
+  if (process.env.DATABASE_URL) {
+    m = await loadSession(slug, session);
+  } else {
+    const db = loadFile();
+    const p = db.projects.find((x) => x.slug === slug);
+    m = p && db.members.find((x) => x.project_id === p.id && x.session_token === session);
+  }
   if (!m) return null;
   // Seen-at drives the online dot; write it at most once a minute so polling stays cheap.
-  if (Date.now() - Date.parse(m.last_seen_at) > 60_000) tx((d) => live(d, m));
+  if (Date.now() - Date.parse(m.last_seen_at) > 60_000) {
+    await tx({ projectId: m.project_id }, (d) => {
+      const current = d.members.find((x) => x.id === m.id);
+      if (current && Date.now() - Date.parse(current.last_seen_at) > 60_000) live(d, m);
+    });
+  }
   return m;
 }
 
 export async function agentContext(agentToken: string): Promise<AgentContext | null> {
   if (!isToken(agentToken)) return null;
-  const db = load();
+  const db = await load({ agentToken });
   const me = db.members.find((m) => m.agent_token === agentToken);
   const project = me && db.projects.find((p) => p.id === me.project_id);
   if (!me || !project) return null;
@@ -98,7 +108,8 @@ export async function agentContext(agentToken: string): Promise<AgentContext | n
 }
 
 export async function latestActivityId(slug: string) {
-  const db = load();
+  if (process.env.DATABASE_URL) return loadActivityId(slug);
+  const db = loadFile();
   const p = db.projects.find((x) => x.slug === slug);
   return p ? db.activity.findLast((a) => a.project_id === p.id)?.id ?? 0 : 0;
 }
@@ -113,7 +124,7 @@ export async function createProject(input: NewProject, fixed?: { slug: string; c
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "project";
   const slug = fixed?.slug ?? `${base}-${randomBytes(2).toString("hex")}`;
   const code = fixed?.code ?? String(randomInt(0, 1_000_000)).padStart(6, "0");
-  return tx((db) => {
+  return tx({ slug }, (db) => {
     if (db.projects.some((p) => p.slug === slug)) return { error: "Try again" };
     const p: Project = {
       id: randomUUID(), slug, name, course_or_context: clean(input.context, LIMIT.context), due_date: due,
@@ -131,7 +142,7 @@ const newTask = (project_id: string, title: string, phase: Phase, position: numb
 });
 
 export async function deleteProject(slug: string) {
-  tx((db) => {
+  await tx({ slug }, (db) => {
     const p = db.projects.find((x) => x.slug === slug);
     if (!p) return;
     const keep = <T extends { project_id: string }>(xs: T[]) => xs.filter((x) => x.project_id !== p.id);
@@ -148,7 +159,7 @@ export async function joinProject(slug: string, input: { name: string; ai_tool: 
   if (!name) return { error: "Enter your name" };
   if (!ai_tool) return { error: "Pick your AI" };
   if (!isCode(input.code)) return { error: "The join code is 6 digits" };
-  return tx((db) => {
+  return tx({ slug }, (db) => {
     const p = db.projects.find((x) => x.slug === slug);
     if (!p) return { error: "This group doesn't exist" };
     if (p.join_code !== input.code) return { error: "That code is not right" };
@@ -192,20 +203,20 @@ function noteIn(db: DB, me: Member, text: string): Result {
 
 // ---------- Member writes ----------
 export async function claimTask(me: Member, taskId: string): Promise<Result> {
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me), t = findTask(db, me, taskId);
     return !m ? gone : !t ? { error: "Task not found" } : claimIn(db, m, t);
   });
 }
 export async function setTaskStatus(me: Member, taskId: string, status: Status): Promise<Result> {
   if (!["todo", "doing", "done"].includes(status)) return { error: "Unknown status" };
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me), t = findTask(db, me, taskId);
     return !m ? gone : !t ? { error: "Task not found" } : statusIn(db, m, t, status);
   });
 }
 export async function unclaimTask(me: Member, taskId: string): Promise<Result> {
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me), t = findTask(db, me, taskId);
     if (!m) return gone;
     if (!t) return { error: "Task not found" };
@@ -217,7 +228,7 @@ export async function unclaimTask(me: Member, taskId: string): Promise<Result> {
 }
 // Anyone can hand a task to anyone. It's logged so the group sees it.
 export async function reassignTask(me: Member, taskId: string, toId: string): Promise<Result> {
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me), t = findTask(db, me, taskId);
     const to = db.members.find((x) => x.id === toId && x.project_id === me.project_id);
     if (!m) return gone;
@@ -233,7 +244,7 @@ export async function reassignTask(me: Member, taskId: string, toId: string): Pr
 export async function addTask(me: Member, title: string, phase: Phase): Promise<Result> {
   const t = clean(title, LIMIT.title);
   if (!t) return { error: "Task needs a title" };
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me);
     if (!m) return gone;
     const ts = db.tasks.filter((x) => x.project_id === m.project_id);
@@ -244,13 +255,13 @@ export async function addTask(me: Member, title: string, phase: Phase): Promise<
   });
 }
 export async function addNote(me: Member, text: string): Promise<Result> {
-  return tx((db) => { const m = live(db, me); return m ? noteIn(db, m, clean(text, LIMIT.note)) : gone; });
+  return tx({ projectId: me.project_id }, (db) => { const m = live(db, me); return m ? noteIn(db, m, clean(text, LIMIT.note)) : gone; });
 }
 
 // Update blocks from paste back, agent POST and MCP. Same rules as the buttons.
 export type BlockResult = { task: string; ok: boolean; message: string };
 export async function applyUpdates(me: Member, blocks: UpdateBlock[]): Promise<BlockResult[]> {
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me);
     const tasks = db.tasks.filter((t) => t.project_id === me.project_id);
     return blocks.slice(0, LIMIT.blocks).map((b): BlockResult => {
@@ -271,7 +282,7 @@ export async function applyUpdates(me: Member, blocks: UpdateBlock[]): Promise<B
 export async function proposeDecision(me: Member, text: string): Promise<Result> {
   const t = clean(text, LIMIT.decision);
   if (!t) return { error: "Write the idea first" };
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me);
     if (!m) return gone;
     db.decisions.push({ id: randomUUID(), project_id: m.project_id, text: t, created_by: m.id, approved_by: null, created_at: now() });
@@ -280,7 +291,7 @@ export async function proposeDecision(me: Member, text: string): Promise<Result>
   });
 }
 export async function approveDecision(me: Member, id: string): Promise<Result> {
-  return tx((db) => {
+  return tx({ projectId: me.project_id }, (db) => {
     const m = live(db, me), d = db.decisions.find((x) => x.id === id && x.project_id === me.project_id);
     if (!m) return gone;
     if (!d) return { error: "Not found" };

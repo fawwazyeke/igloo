@@ -29,12 +29,14 @@ export type Result = { ok?: string; error?: string };
 export type UpdateBlock = { task: string; status?: Status; note?: string; error?: string };
 
 // ---------- Input checks ----------
-export const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
-export const cleanText = (v: unknown, max: number) => String(v ?? "").replace(/\r\n?/g, "\n").trim().slice(0, max);
+// PostgreSQL text cannot contain NUL. A length cap can also split a surrogate pair.
+const capText = (s: string, max: number) => s.replace(/\0/g, "").trim().slice(0, max).replace(/[\uD800-\uDFFF]/gu, "�");
+export const clean = (v: unknown, max: number) => capText(String(v ?? "").replace(/\s+/g, " "), max);
+export const cleanText = (v: unknown, max: number) => capText(String(v ?? "").replace(/\r\n?/g, "\n"), max);
 export const isToken = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 export const isCode = (v: unknown): v is string => typeof v === "string" && /^\d{6}$/.test(v);
 export function isDate(v: unknown): v is string {
-  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v) || v.startsWith("0000-")) return false;
   const d = new Date(v + "T00:00:00Z");
   return !isNaN(+d) && d.toISOString().startsWith(v);
 }
