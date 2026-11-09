@@ -221,6 +221,19 @@ export async function shareFile(me: Member, file: File, taskId: string): Promise
   });
 }
 
+// Any member can remove a shared file. It's logged so the group sees who did it.
+export async function deleteFile(me: Member, id: string): Promise<Result> {
+  return tx({ projectId: me.project_id }, (db) => {
+    const member = live(db, me);
+    if (!member) return gone;
+    const file = db.project_files.find((entry) => entry.id === id && entry.project_id === me.project_id);
+    if (!file) return { error: "File not found" };
+    db.project_files = db.project_files.filter((entry) => entry !== file);
+    log(db, me.project_id, member.id, "file", `${member.name} deleted ${file.name}`);
+    return { ok: `Deleted ${file.name}` };
+  });
+}
+
 export async function sharedFile(projectId: string, id: string) {
   if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) return null;
   const file = process.env.DATABASE_URL ? await loadFileBytes(projectId, id) :

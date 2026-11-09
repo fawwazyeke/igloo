@@ -103,6 +103,9 @@ export async function shareFile(_: Result, form: FormData): Promise<Result> {
     return store.shareFile(me, file, str(form.get("task")).slice(0, 36));
   });
 }
+export async function deleteFile(slug: string, id: string): Promise<Result> {
+  return asMember(slug, (me) => store.deleteFile(me, str(id)));
+}
 export async function proposeDecision(slug: string, text: string): Promise<Result> {
   return asMember(slug, (me) => store.proposeDecision(me, str(text)));
 }

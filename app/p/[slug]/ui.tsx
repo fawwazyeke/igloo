@@ -147,6 +147,10 @@ function useActions(d: AppData, toast: (t: string, tone?: Toast["tone"]) => void
     addTask: (title: string) => run(() => A.addTask(d.slug, title)),
     propose: (text: string) => run(() => A.proposeDecision(d.slug, text)),
     approve: (id: string) => run(() => A.approveDecision(d.slug, id)),
+    deleteFile: (file: ProjectFile, after?: () => void) => {
+      if (!window.confirm(`Delete ${file.name} for everyone? This can't be undone.`)) return;
+      run(async () => { const r = await A.deleteFile(d.slug, file.id); if (!r.error) after?.(); return r; });
+    },
     copyDigest: () => copy(buildDigest(d.project, d.members, d.tasks, groupUrl())).then(() => toast("Update copied. Paste it in your group chat.", "ok")),
     copyAgent: () => copy(`${location.origin}/a/${d.me.agent_token}`).then(() => toast("Link copied. Paste it into your AI, and keep it private.", "ok")),
     copyInvite: () => copy(`Join ${d.project.name} on Igloo\n${groupUrl()}\nCode: ${d.project.join_code}`).then(() => toast("Invite copied", "ok")),
@@ -275,7 +279,7 @@ export function App(props: AppData) {
           </nav>
           <div className="pane">
             {tab === "tasks" && <TaskList {...ctx} />}
-            {tab === "files" && <FilesPanel d={d} byId={byId} selected={selectedFile} openFile={openFile} back={openFiles} />}
+            {tab === "files" && <FilesPanel d={d} byId={byId} selected={selectedFile} openFile={openFile} back={openFiles} remove={a.deleteFile} />}
             {tab === "ai" && <AiPanel d={d} a={a} toast={toast} />}
             {tab === "activity" && <Feed {...ctx} />}
             {tab === "decisions" && <Decisions {...ctx} />}
@@ -385,7 +389,8 @@ function Board({ d, a, openFile }: { d: AppData; a: Actions; openFile: (id: stri
         <svg width={W} height={H} aria-hidden>
           {d.tasks.map((t) => {
             const p = spot(t.id), o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
-            return <line key={t.id} x1={-minX} y1={60 - minY} x2={p.x - minX} y2={p.y - 60 - minY} strokeWidth={1.5}
+            // Center to center. The opaque cards sit on top, so each line meets a card's nearest edge wherever it is dragged.
+            return <line key={t.id} x1={-minX} y1={-minY} x2={p.x - minX} y2={p.y - minY} strokeWidth={1.5}
               stroke={t.status === "doing" && o ? o.color : "#ebe4d8"} className={t.status === "doing" ? "flow" : undefined} />;
           })}
         </svg>
@@ -428,19 +433,22 @@ function Board({ d, a, openFile }: { d: AppData; a: Actions; openFile: (id: stri
   );
 }
 
-function FileCard({ file, slug, className, style, subtitle, openFile }: {
+function FileCard({ file, slug, className, style, subtitle, openFile, onDelete }: {
   file: ProjectFile; slug: string; className: string; style?: CSSProperties; subtitle: string; openFile: (id: string) => void;
+  onDelete?: () => void;
 }) {
   return <div className={`file-card ${className}`} style={style}>
     <FileThumbnail key={file.id} file={file} slug={slug} />
     <button className="file-open" type="button" onClick={() => openFile(file.id)}>
       <strong>{file.name}</strong><span className="small">{FILE_LABEL[file.kind]} · {subtitle}</span>
     </button>
+    {onDelete && <button className="file-delete" type="button" aria-label={`Delete ${file.name}`} title="Delete" onClick={onDelete}>×</button>}
   </div>;
 }
 
-function FilesPanel({ d, byId, selected, openFile, back }: {
+function FilesPanel({ d, byId, selected, openFile, back, remove }: {
   d: AppData; byId: Map<string, MemberPublic>; selected: string | null; openFile: (id: string) => void; back: () => void;
+  remove: (file: ProjectFile, after?: () => void) => void;
 }) {
   const [state, action, pending] = useActionState(A.shareFile, {});
   const [linkedTask, setLinkedTask] = useState("");
@@ -457,6 +465,7 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
         <div className="wrap-row file-actions">
           <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>
           {file.kind === "pdf" && <a className="ghost" href={fileUrl(file.id, d.slug) + "&preview=1"} target="_blank" rel="noreferrer">Open PDF</a>}
+          <button className="ghost danger" type="button" onClick={() => remove(file, back)}>Delete</button>
         </div>
         {file.kind === "text" && <FileText key={`text-${file.id}`} url={fileUrl(file.id, d.slug) + "&preview=1"} />}
         {(file.kind === "slides" || file.kind === "document") && <p className="small">Download to open it, or share a PDF copy for browser preview.</p>}
@@ -487,7 +496,8 @@ function FilesPanel({ d, byId, selected, openFile, back }: {
       </form>
       {d.files.slice().reverse().map((entry) => (
         <FileCard key={entry.id} file={entry} slug={d.slug} className="task file-row"
-          subtitle={`${titleOf(entry)} · ${byId.get(entry.member_id)?.name ?? "A teammate"}`} openFile={openFile} />
+          subtitle={`${titleOf(entry)} · ${byId.get(entry.member_id)?.name ?? "A teammate"}`} openFile={openFile}
+          onDelete={() => remove(entry)} />
       ))}
     </section>
   );

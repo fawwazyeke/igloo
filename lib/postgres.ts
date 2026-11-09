@@ -115,6 +115,12 @@ async function saveProject(client: PoolClient, before: DB, after: DB) {
       }
     }
   }
+  // Shared files are the only rows the rules remove on their own.
+  const keptFiles = new Set(after.project_files.map((row) => row.id));
+  const removedFiles = before.project_files.filter((row) => !keptFiles.has(row.id)).map((row) => row.id);
+  if (removedFiles.length) {
+    await client.query("DELETE FROM project_files WHERE project_id = $1 AND id = ANY($2::uuid[])", [before.projects[0].id, removedFiles]);
+  }
   const entries = after.activity.filter((row) => row.id > before.seq);
   if (entries.length) {
     await client.query(`
