@@ -218,3 +218,18 @@ textarea.input { resize: vertical; }
 .file-node { cursor: grab; touch-action: none; user-select: none; }
 .dragging .file-node, .task-node.dragging { cursor: grabbing; z-index: 2; box-shadow: var(--shadow-lift); }
 .board-reset { position: absolute; top: 12px; right: 12px; z-index: 3; background: var(--panel); }
+
+/* Shared links */
+.link-form { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.link-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--soft); }
+.link-service { font-size: 20px; font-weight: 600; color: var(--text); }
+.link-host { font: 500 11px var(--font-mono), monospace; color: var(--muted); }
+.link-thumb.link-github { background: #24292f; }
+.link-thumb.link-github .link-service, .link-thumb.link-github .link-host { color: #fff; }
+.link-thumb.link-canva { background: linear-gradient(135deg, #00c4cc, #7d2ae8); }
+.link-thumb.link-canva .link-service, .link-thumb.link-canva .link-host { color: #fff; }
+.link-thumb.link-figma { background: #1e1e1e; }
+.link-thumb.link-figma .link-service, .link-thumb.link-figma .link-host { color: #fff; }
+.file-row .link-service { font-size: 10px; }
+.file-row .link-host { display: none; }
+.link-url { margin-top: 8px; overflow-wrap: anywhere; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FILE_LABEL, fileUrl, type ProjectFile } from "@/lib/core";
+import { FILE_LABEL, fileUrl, linkService, type ProjectFile } from "@/lib/core";
 
 type Preview = { image: string } | { markup: string } | { snippet: string };
 
@@ -107,6 +107,15 @@ export function FileThumbnail({ file, slug }: { file: ProjectFile; slug: string 
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [id, isHtml, isOffice, isSource, kind, slug, visible]);
+  if (kind === "link" && file.url) {
+    const service = linkService(file.url);
+    return (
+      <span className={`file-thumb link-thumb link-${service.toLowerCase().replace(/[^a-z]+/g, "")}`} aria-hidden="true" data-thumbnail="ready">
+        <span className="link-service">{service}</span>
+        <span className="link-host">{new URL(file.url).hostname.replace(/^www\./, "")}</span>
+      </span>
+    );
+  }
   return (
     <span className="file-thumb" ref={container} aria-hidden="true" data-thumbnail={preview ? "ready" : "fallback"}>
       {preview ? "image" in preview

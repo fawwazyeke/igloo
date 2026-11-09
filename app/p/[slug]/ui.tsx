@@ -6,7 +6,7 @@ import * as A from "@/app/actions";
 import { Dropdown } from "./dropdown";
 import { FileThumbnail } from "./file-thumbnail";
 import {
-  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, buildDigest, dueLabel, fileUrl, isToken, matchTask, parseUpdates, timeAgo,
+  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, buildDigest, cleanUrl, dueLabel, fileUrl, isToken, linkService, matchTask, parseUpdates, timeAgo,
   type Activity, type Decision, type MemberPublic, type ProjectFile, type Result, type Status, type Task,
 } from "@/lib/core";
 
@@ -458,12 +458,15 @@ function FilesPanel({ d, byId, selected, openFile, back, remove }: {
     <section className="sec">
       <button className="linkbtn" onClick={back}>← All files</button>
       <div className="file-detail">
-        <div className="eyebrow">{FILE_LABEL[file.kind]} · {titleOf(file)}</div>
+        <div className="eyebrow">{file.kind === "link" && file.url ? `${linkService(file.url)} link` : FILE_LABEL[file.kind]} · {titleOf(file)}</div>
         <h2 className="title">{file.name}</h2>
-        <div className="small">Shared by {byId.get(file.member_id)?.name ?? "A teammate"} · {Math.max(1, Math.round(file.size / 1024))} KB</div>
+        <div className="small">Shared by {byId.get(file.member_id)?.name ?? "A teammate"}{file.kind === "link" ? "" : ` · ${Math.max(1, Math.round(file.size / 1024))} KB`}</div>
         <FileThumbnail key={file.id} file={file} slug={d.slug} />
+        {file.kind === "link" && file.url && <p className="small link-url">{file.url}</p>}
         <div className="wrap-row file-actions">
-          <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>
+          {file.kind === "link" && file.url
+            ? <a className="btn" href={file.url} target="_blank" rel="noopener noreferrer">Open link</a>
+            : <a className="btn" href={fileUrl(file.id, d.slug)}>Download</a>}
           {file.kind === "pdf" && <a className="ghost" href={fileUrl(file.id, d.slug) + "&preview=1"} target="_blank" rel="noreferrer">Open PDF</a>}
           <button className="ghost danger" type="button" onClick={() => remove(file, back)}>Delete</button>
         </div>
@@ -494,12 +497,51 @@ function FilesPanel({ d, byId, selected, openFile, back, remove }: {
         {state.ok && <p className="small" role="status">{state.ok}</p>}
         <button className="btn" disabled={pending}>{pending ? "Sharing…" : "Share file"}</button>
       </form>
+      <LinkForm d={d} />
       {d.files.slice().reverse().map((entry) => (
         <FileCard key={entry.id} file={entry} slug={d.slug} className="task file-row"
           subtitle={`${titleOf(entry)} · ${byId.get(entry.member_id)?.name ?? "A teammate"}`} openFile={openFile}
           onDelete={() => remove(entry)} />
       ))}
     </section>
+  );
+}
+
+// GitHub repos and PRs, Canva designs, Figma files and other links live next to files.
+function LinkForm({ d }: { d: AppData }) {
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
+  const [task, setTask] = useState("");
+  const [msg, setMsg] = useState<Result>({});
+  const [pending, start] = useTransition();
+  const valid = !!cleanUrl(url);
+  return (
+    <form className="file-form link-form" onSubmit={(e) => {
+      e.preventDefault();
+      if (!valid) { setMsg({ error: "Paste a full link that starts with https://" }); return; }
+      start(async () => {
+        const r = await A.addLink(d.slug, url, name, task);
+        setMsg(r);
+        if (r.ok) { setUrl(""); setName(""); setTask(""); }
+      });
+    }}>
+      <label className="label">Add a link
+        <input className="input" type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} maxLength={500}
+          placeholder="https://github.com/team/repo or a Canva link" />
+      </label>
+      <label className="label">Name <span className="optional">(optional)</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={160}
+          placeholder={valid ? linkService(cleanUrl(url)!) : "Pitch deck in Canva"} />
+      </label>
+      <div>
+        <span className="label">Link to a task</span>
+        <Dropdown label="Link to a task" placeholder="Project link (no task)" value={task} onChange={setTask}
+          options={[{ value: "", label: "Project link (no task)" }, ...d.tasks.map((t) => ({ value: t.id, label: t.title }))]} />
+      </div>
+      {msg.error && <p className="err" role="alert">{msg.error}</p>}
+      {msg.ok && <p className="small" role="status">{msg.ok}</p>}
+      <button className="btn" disabled={pending || !url.trim()}>{pending ? "Sharing…" : "Share link"}</button>
+    </form>
   );
 }
 

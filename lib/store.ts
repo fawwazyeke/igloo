@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import { empty, loadActivityId, loadFileBytes, loadProject, loadSession, projectTransaction, recordRateHit, type DB, type Selector, type StoredFile } from "./postgres";
 import {
-  COLORS, FILE_ACCEPT, FILE_LIMIT, LIMIT, PHASES, clean, cleanText, isCode, isDate, isToken, matchTask, publicMember,
+  COLORS, FILE_ACCEPT, FILE_LIMIT, LIMIT, PHASES, clean, cleanText, cleanUrl, isCode, isDate, isToken, linkName, matchTask, publicMember,
   type Activity, type AgentContext, type Decision, type Member, type Note, type Phase,
   type Project, type ProjectFile, type Result, type Status, type Task, type UpdateBlock,
 } from "./core";
@@ -208,16 +208,37 @@ export async function shareFile(me: Member, file: File, taskId: string): Promise
     const member = live(db, me);
     if (!member) return gone;
     if (taskId && !findTask(db, me, taskId)) return { error: "Task not found" };
-    const files = db.project_files.filter((entry) => entry.project_id === me.project_id);
+    const files = db.project_files.filter((entry) => entry.project_id === me.project_id && entry.kind !== "link");
     if (files.length >= 24 || files.reduce((sum, entry) => sum + entry.size, bytes.length) > 12 * 1024 * 1024) {
       return { error: "This project has reached its shared file limit" };
     }
     db.project_files.push({
       id: randomUUID(), project_id: me.project_id, task_id: taskId || null, member_id: member.id,
-      name, kind, size: bytes.length, created_at: now(), data: bytes.toString("base64"),
+      name, kind, size: bytes.length, created_at: now(), url: null, data: bytes.toString("base64"),
     });
     log(db, me.project_id, member.id, "file", `${member.name} shared ${name}`);
     return { ok: "File shared" };
+  });
+}
+
+// A shared link, such as a GitHub repo or PR or a Canva design. Stored next to files, with no bytes.
+export async function addLink(me: Member, rawUrl: string, rawName: string, taskId: string): Promise<Result> {
+  const url = cleanUrl(rawUrl);
+  if (!url) return { error: "Paste a full link that starts with https://" };
+  const name = clean(rawName, 160) || linkName(url);
+  return tx({ projectId: me.project_id }, (db) => {
+    const member = live(db, me);
+    if (!member) return gone;
+    if (taskId && !findTask(db, me, taskId)) return { error: "Task not found" };
+    if (db.project_files.filter((entry) => entry.project_id === me.project_id && entry.kind === "link").length >= 40) {
+      return { error: "This project has reached its link limit" };
+    }
+    db.project_files.push({
+      id: randomUUID(), project_id: me.project_id, task_id: taskId || null, member_id: member.id,
+      name, kind: "link", size: url.length, created_at: now(), url, data: "",
+    });
+    log(db, me.project_id, member.id, "file", `${member.name} shared a link: ${name}`);
+    return { ok: "Link shared" };
   });
 }
 

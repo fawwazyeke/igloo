@@ -1,6 +1,6 @@
 import { buildAgentText, FILE_ACCEPT, FILE_LIMIT, LIMIT, matchTask, originOf, type AgentContext } from "@/lib/core";
 import { readBody } from "@/lib/http";
-import { addNote, agentContext, applyUpdates, claimTask, rateLimit, shareFile } from "@/lib/store";
+import { addLink, addNote, agentContext, applyUpdates, claimTask, rateLimit, shareFile } from "@/lib/store";
 
 const versions = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const title = { type: "string", minLength: 1, maxLength: LIMIT.title };
@@ -35,6 +35,19 @@ const tools = [
         task: { ...title, description: "Optional task title to attach the file to" },
       },
       required: ["name", "content"],
+    },
+  },
+  {
+    name: "share_link",
+    description: "Share a link with the group, such as a GitHub repo or pull request, or a Canva or Figma design.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", minLength: 1, maxLength: 500, description: "Full https:// link" },
+        name: { type: "string", maxLength: 160, description: "Optional short name, such as \"Backend PR #4\"" },
+        task: { ...title, description: "Optional task title to attach the link to" },
+      },
+      required: ["url"],
     },
   },
 ];
@@ -81,6 +94,16 @@ async function callTool(ctx: AgentContext, name: string, args: Record<string, un
       if (!(await rateLimit(`upload:${ctx.me.id}`, 12, 600_000))) return reply("Too many uploads. Try again shortly.", true);
       const result = await shareFile(ctx.me, new File([bytes], name.trim()), linked?.id ?? "");
       return result.error ? reply(result.error, true) : reply(`${result.ok}: ${name.trim()}${linked ? ` (task: ${linked.title})` : ""}`);
+    }
+    case "share_link": {
+      const { url, name, task } = args;
+      if (!validText(url, 500) || (name !== undefined && typeof name !== "string") ||
+          (task !== undefined && !validText(task, LIMIT.title))) return reply("Invalid url, name or task", true);
+      const linked = task === undefined ? undefined : matchTask(ctx.tasks, task.trim());
+      if (task !== undefined && !linked) return reply("No task with that title", true);
+      if (!(await rateLimit(`upload:${ctx.me.id}`, 12, 600_000))) return reply("Too many shares. Try again shortly.", true);
+      const result = await addLink(ctx.me, url, name ?? "", linked?.id ?? "");
+      return result.error ? reply(result.error, true) : reply(`${result.ok}${linked ? ` (task: ${linked.title})` : ""}`);
     }
     case "add_note": {
       if (!validText(args.text, LIMIT.note)) return reply("Provide a note of up to 280 characters", true);

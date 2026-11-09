@@ -88,5 +88,9 @@ CREATE TABLE IF NOT EXISTS project_files (
   data text NOT NULL
 );
 CREATE INDEX IF NOT EXISTS project_files_project_created ON project_files (project_id, created_at);
+-- Shared links (GitHub, Canva…) live alongside files.
+ALTER TABLE project_files ADD COLUMN IF NOT EXISTS url text;
+ALTER TABLE project_files DROP CONSTRAINT IF EXISTS project_files_kind_check;
+ALTER TABLE project_files ADD CONSTRAINT project_files_kind_check CHECK (kind IN ('text', 'pdf', 'slides', 'document', 'link'));
 
 COMMIT;

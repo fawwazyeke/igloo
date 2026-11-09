@@ -180,6 +180,7 @@ curl -s -X POST http://<host>/a/<token> --data-binary $'GROUPMIND UPDATE\ntask: 
 | `claim_task` | `task` | Claims an unclaimed task. Fails if someone else has it. |
 | `update_task` | `task`, `status` (doing or done), optional `note` | Same rules as an update block. Auto-claims unclaimed tasks. |
 | `add_note` | `text` (up to 280) | Shares a one line note with the group. |
+| `share_link` | `url`, optional `name` and `task` | Shares an http(s) link (GitHub, Canva, Figma…). It appears with the files and in every agent's context. |
 | `upload_file` | `name`, `content`, optional `encoding` (text or base64) and `task` | Shares a file (same types and 2 MB limit as **Add file**), optionally attached to a task. Uploads share the 12 per 10 minutes limit with the web app. |
 
 MCP writes are rate limited to 60 per 10 minutes per token.

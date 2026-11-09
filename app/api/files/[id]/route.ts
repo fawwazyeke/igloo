@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const notFound = () => new Response("Not found", { status: 404, headers: securityHeaders });
   if (!projectId) return notFound();
   const file = await sharedFile(projectId, (await params).id);
-  if (!file) return notFound();
+  if (!file || file.kind === "link") return notFound();
   if (searchParams.get("thumbnail") === "1") {
     if (file.kind !== "slides" && file.kind !== "document") return notFound();
     const thumbnail = await officeThumbnail(file.bytes).catch(() => null);

@@ -3,7 +3,7 @@ import type { Activity, Decision, Member, Note, Project, ProjectFile, Task } fro
 
 export type StoredFile = ProjectFile & { data?: string };
 export type StoredMember = Member & { device_code_hash?: string | null; device_expires_at?: string | null };
-const fileColumns = "id, project_id, task_id, member_id, name, kind, size, created_at";
+const fileColumns = "id, project_id, task_id, member_id, name, kind, size, created_at, url";
 
 export type DB = {
   projects: Project[]; members: StoredMember[]; tasks: Task[];
@@ -13,6 +13,23 @@ export const empty = (): DB => ({ projects: [], members: [], tasks: [], decision
 
 export type Selector = { slug: string } | { projectId: string } | { agentToken: string };
 let pool: Pool | undefined;
+
+// Shared links need a url column and the "link" kind. Apply that once per process,
+// so an existing Railway database upgrades itself without running schema.sql by hand.
+let upgraded: Promise<void> | undefined;
+function upgrade(pool: Pool) {
+  upgraded ??= pool.query(`
+    ALTER TABLE project_files ADD COLUMN IF NOT EXISTS url text;
+    ALTER TABLE project_files DROP CONSTRAINT IF EXISTS project_files_kind_check;
+    ALTER TABLE project_files ADD CONSTRAINT project_files_kind_check CHECK (kind IN ('text', 'pdf', 'slides', 'document', 'link'));
+  `).then(() => undefined, (err) => { upgraded = undefined; throw err; });
+  return upgraded;
+}
+export async function db() {
+  const pool = postgres();
+  await upgrade(pool);
+  return pool;
+}
 
 export function postgres() {
   if (!pool) {
@@ -43,7 +60,7 @@ const tables = {
 } as const;
 
 export async function loadSession(slug: string, token: string): Promise<Member | null> {
-  const { rows } = await postgres().query<{ member: Member }>(`
+  const { rows } = await (await db()).query<{ member: Member }>(`
     SELECT row_to_json(m) AS member FROM members m
     JOIN projects p ON p.id = m.project_id
     WHERE p.slug = $1 AND m.session_token = $2
@@ -52,7 +69,7 @@ export async function loadSession(slug: string, token: string): Promise<Member |
 }
 
 export async function loadActivityId(slug: string): Promise<number> {
-  const { rows } = await postgres().query<{ id: number }>(`
+  const { rows } = await (await db()).query<{ id: number }>(`
     SELECT a.id::double precision AS id FROM activity a
     JOIN projects p ON p.id = a.project_id
     WHERE p.slug = $1 ORDER BY a.id DESC LIMIT 1
@@ -60,7 +77,8 @@ export async function loadActivityId(slug: string): Promise<number> {
   return rows[0]?.id ?? 0;
 }
 
-export async function loadProject(by: Selector, client: Pool | PoolClient = postgres()): Promise<DB> {
+export async function loadProject(by: Selector, client?: Pool | PoolClient): Promise<DB> {
+  client ??= await db();
   const { where, value } = projectFilter(by);
   const { rows } = await client.query<Omit<DB, "seq">>(`
     SELECT json_build_array(p) AS projects,
@@ -133,7 +151,7 @@ async function saveProject(client: PoolClient, before: DB, after: DB) {
 }
 
 export async function loadFileBytes(projectId: string, id: string) {
-  const { rows } = await postgres().query<{ file: ProjectFile & { data: string } }>(
+  const { rows } = await (await db()).query<{ file: ProjectFile & { data: string } }>(
     "SELECT row_to_json(f) AS file FROM project_files f WHERE project_id = $1 AND id = $2",
     [projectId, id],
   );
@@ -155,7 +173,7 @@ export async function projectTransaction<T>(by: Selector, apply: (db: DB) => T):
 }
 
 export async function transaction<T>(run: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await postgres().connect();
+  const client = await (await db()).connect();
   let discard = false;
   try {
     await client.query("BEGIN");
