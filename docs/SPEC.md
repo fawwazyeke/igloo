@@ -434,13 +434,13 @@ The seed creates four members (Aisha/Claude, Minjun/ChatGPT, Daniel/Gemini, Sofi
 - Token isolation, checked in a production build.
 
 **Known limits:**
-- **Storage:** configure PostgreSQL on serverless hosts such as Vercel. JSON mode is for one local process.
+- **Storage:** use PostgreSQL when hosted (Railway's disk resets on each deploy). JSON mode is for one local process.
 - **Live updates** use polling (3 seconds), not websockets.
 - **Web chat AIs** can't reach a local address, so they use copy and paste until the app is deployed publicly.
 - **Sessions are per device.** A new device means joining again under a different name, because names are unique.
 
 **Possible next steps:**
-1. Provision Railway Postgres and deploy the app to Vercel using the [deployment steps](../README.md#deploy) so agents can reach the public endpoints.
+1. Deploy the app and PostgreSQL on Railway using the [deployment steps](../README.md#deploy) so agents can reach the public endpoints.
 2. Add a "rejoin on another device" link (a one-time code) so members aren't tied to one device.
 3. Optionally let agents suggest decisions or add tasks, each still needing a human to agree.
 4. Push updates with server-sent events instead of polling.

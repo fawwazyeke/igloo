@@ -26,13 +26,23 @@ To open your existing membership on another browser, use **Copy rejoin link** on
 
 ## Deploy
 
-1. Add a PostgreSQL service in Railway and enable [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) so Vercel can connect.
-2. Apply [db/schema.sql](db/schema.sql). With the original Railway public URL stored in your shell as `DATABASE_PUBLIC_URL`, run `PGSSLMODE=require psql "$DATABASE_PUBLIC_URL" -v ON_ERROR_STOP=1 -f db/schema.sql`.
-3. Import the repo in Vercel and set its server-only `DATABASE_URL` to the public connection string before deploying. For the standard Railway template, append `?sslmode=require&uselibpqcompat=true` (use `&` if the URL already has query parameters). This requires encryption and accepts the template's generated certificate without verifying its identity.
+The app and its database both run on Railway, in one project. The app talks to PostgreSQL over Railway's private network, so the database never needs to be reachable from the internet.
 
-To run locally against Railway, set the same app connection string in the gitignored `.env.local`. JSON data stays in the local file when you switch backends.
+1. Create a Railway project and add a PostgreSQL service.
+2. Add a service from this GitHub repo in the same project. Railway builds it with `npm run build` and starts it with `npm start`, which listens on the `PORT` Railway provides.
+3. In the app service's variables, set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}` (the private connection string). Never prefix it with `NEXT_PUBLIC_`.
+4. Under the app service's **Networking**, generate a Railway domain or add your own.
+5. Apply [db/schema.sql](db/schema.sql) once, and again whenever it changes (see "Working from your machine" below).
 
-To seed the hosted demo, run `IGLOO_ORIGIN=https://your-app.example npm run seed` with the hosted database configured. This replaces only the `campus-coffee` project and rotates its private links.
+### Working from your machine
+
+Your computer can't reach Railway's private network. To apply the schema, seed, or run locally against the hosted database, turn on [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) for the PostgreSQL service and use its `DATABASE_PUBLIC_URL`. You can turn it off again afterwards; the deployed app doesn't use it.
+
+- **Schema:** with the public URL in your shell as `DATABASE_PUBLIC_URL`, run `PGSSLMODE=require psql "$DATABASE_PUBLIC_URL" -v ON_ERROR_STOP=1 -f db/schema.sql`.
+- **Local app against Railway:** set `DATABASE_URL` in the gitignored `.env.local` to the public URL with `?sslmode=require&uselibpqcompat=true` appended (use `&` if the URL already has query parameters). This requires encryption and accepts the template's generated certificate without verifying its identity. JSON data stays in the local file when you switch backends.
+- **Demo seed:** with that same `DATABASE_URL` set, run `IGLOO_ORIGIN=https://your-app.up.railway.app npm run seed`. This replaces only the `campus-coffee` project and rotates its private links.
+
+Don't use JSON mode on Railway: the service's disk is reset on every deploy.
 
 ## Where the UI lives
 
@@ -52,6 +62,6 @@ To seed the hosted demo, run `IGLOO_ORIGIN=https://your-app.example npm run seed
 - Private agent links and update POSTs, MCP, and the demo seed.
 - PostgreSQL storage and shared rate limits when `DATABASE_URL` is configured.
 
-**Next:** Provision Railway and deploy to Vercel, then check the public app and agent endpoints. See the plan for follow-up features.
+**Next:** Deploy the app and database on Railway, then check the public app and agent endpoints. See the plan for follow-up features.
 
 Rules: never call any AI or LLM API, and add files and dependencies only when they're needed.

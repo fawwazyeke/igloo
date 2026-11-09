@@ -58,7 +58,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 1. **You:**
    - Create a Railway project, add a PostgreSQL service, and apply [db/schema.sql](../db/schema.sql).
-   - Railway databases are private by default. Since the app is deployed on Vercel, enable **Public Access** on the PostgreSQL service to create a TCP proxy and `DATABASE_PUBLIC_URL`.
+   - Railway databases are private by default, and the deployed app (Milestone D) reaches it over the private network. For work from your own machine (schema, seed, local runs), enable **Public Access** on the PostgreSQL service to get `DATABASE_PUBLIC_URL`.
    - Put the value of Railway's `DATABASE_PUBLIC_URL` in `.env.local` as `DATABASE_URL`. Never prefix either variable with `NEXT_PUBLIC_`, and never expose the connection string to client code.
 2. `lib/store.ts` selects Postgres when `DATABASE_URL` is present. Postgres locks the project row before the shared rules read and change it. Claims of unowned tasks also require `owner_member_id IS NULL` in the update. Changes and activity rows commit together.
 3. The unique `(project_id, lower(name))` index backs up the duplicate-name check.
@@ -82,9 +82,9 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 - **Check:** the 11th join in 10 minutes is refused, even after a restart.
 
-## Milestone D. Deploy on Vercel
+## Milestone D. Deploy on Railway
 
-1. **You:** import the repo in Vercel and follow the [README deployment steps](../README.md#deploy) to set `DATABASE_URL` to Railway's public endpoint with TLS.
+1. **You:** add the repo as a service in the same Railway project as PostgreSQL and follow the [README deployment steps](../README.md#deploy): set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}` (private network) and generate a domain.
 2. Seed the demo project once.
 3. **Check:**
    - A phone on mobile data can create, join and use the board.
@@ -134,5 +134,5 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 ## Things only you can do
 
-- Create the Railway project and PostgreSQL service, enable database Public Access, and paste the `DATABASE_PUBLIC_URL` value into `.env.local` and Vercel under the name `DATABASE_URL`.
-- Connect the GitHub repo in Vercel.
+- Create the Railway project and PostgreSQL service, and add the GitHub repo as a second service with `DATABASE_URL` set to `${{Postgres.DATABASE_URL}}`.
+- For work from your machine, enable database Public Access and paste the `DATABASE_PUBLIC_URL` value into `.env.local` as `DATABASE_URL`.
