@@ -23,7 +23,9 @@ export type Task = {
   owner_member_id: string | null; status: Status; claimed_at: string | null; done_at: string | null;
 };
 export type Decision = { id: string; project_id: string; text: string; created_by: string | null; approved_by: string | null; created_at: string };
-export type Note = { id: string; project_id: string; text: string; source_member_id: string | null; created_at: string };
+// task_id is set on notes and activity written since tasks got their own history. Older rows have none:
+// never match those to a task by their text.
+export type Note = { id: string; project_id: string; text: string; source_member_id: string | null; created_at: string; task_id?: string | null };
 export type ProjectFile = {
   id: string; project_id: string; task_id: string | null; member_id: string;
   name: string; kind: "text" | "pdf" | "slides" | "document" | "link"; size: number; created_at: string;
@@ -58,7 +60,9 @@ export function linkName(url: string): string {
   return service;
 }
 export const fileUrl = (id: string, slug: string) => `/api/files/${id}?project=${encodeURIComponent(slug)}`;
-export type Activity = { id: number; project_id: string; member_id: string | null; kind: string; message: string; created_at: string };
+export type Activity = { id: number; project_id: string; member_id: string | null; kind: string; message: string; created_at: string; task_id?: string | null };
+// The newest progress note on a task, without the "<task title>: " prefix the stored note carries.
+export type TaskNote = { text: string; member_id: string | null; created_at: string };
 export type Result = { ok?: string; error?: string };
 export type UpdateBlock = { task: string; status?: Status; note?: string; error?: string };
 
@@ -142,6 +146,18 @@ export function dueLabel(due: string | null, now = new Date()) {
   if (!due) return "no due date";
   const n = daysLeft(due, now);
   return n === 0 ? "due today" : n > 0 ? `${n}d left` : `${-n}d overdue`;
+}
+// A task's own deadline, for its card. Done tasks are never shown as late.
+export function taskDue(due: string | null, status: Status, now = new Date()): { text: string; tone: "plain" | "soon" | "late" } | null {
+  if (!due) return null;
+  const n = daysLeft(due, now);
+  const date = new Date(due + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  if (status === "done") return { text: `Due ${date}`, tone: "plain" };
+  if (n < 0) return { text: `${-n}d overdue`, tone: "late" };
+  if (n === 0) return { text: "Due today", tone: "soon" };
+  if (n === 1) return { text: "Due tomorrow", tone: "soon" };
+  if (n === 2) return { text: "Due in 2d", tone: "soon" };
+  return { text: `Due ${date}`, tone: "plain" };
 }
 export function timeAgo(iso: string, now = Date.now()) {
   const s = Math.max(0, (now - Date.parse(iso)) / 1000);

@@ -35,16 +35,7 @@ a { color: inherit; }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
 textarea.input { resize: vertical; }
 .label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; }
-.dropdown { position: relative; min-width: 0; }
-.dropdown-trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 12px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; text-align: left; }
-.dropdown-trigger span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dropdown.compact .dropdown-trigger { padding: 4px 8px; }
-.dropdown-chevron { width: 7px; height: 7px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); margin: -3px 2px 0; flex-shrink: 0; }
-.dropdown-trigger[aria-expanded="true"] { border-color: var(--accent); }
-.dropdown-options { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; max-height: 180px; overflow-y: auto; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow-lift); }
-.dropdown.compact .dropdown-options { left: auto; min-width: 140px; }
-.dropdown-options button { display: block; width: 100%; border: 0; background: transparent; border-radius: 8px; padding: 8px; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
-.dropdown-options button:hover, .dropdown-options button:focus-visible, .dropdown-options button[aria-selected="true"] { background: var(--accent-soft); }
+select.hand { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px 6px; font-size: 12px; color: var(--muted); }
 .pill { border-radius: 999px; background: var(--soft); padding: 4px 10px; font-size: 12px; color: var(--muted); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pills button { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted); }
@@ -60,19 +51,10 @@ textarea.input { resize: vertical; }
 .page h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
 .page .lead { margin: 4px 0 20px; color: var(--muted); }
 .form { display: grid; gap: 16px; }
-.optional { font-weight: 400; color: var(--muted); }
-.task-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; padding: 6px 8px; cursor: text; }
-.task-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
-.task-input input { flex: 1; min-width: 140px; border: 0; outline: none; background: transparent; padding: 4px; font-size: 12px; }
-.task-pill { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 3px 4px 3px 10px; font-size: 12px; }
-.task-pill span { overflow-wrap: anywhere; }
-.task-pill button { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; }
-.task-pill button:hover, .task-pill button:focus-visible { background: rgb(232 116 59 / .18); color: var(--accent); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
 .hint { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
 .code-input { text-align: center; font-size: 18px; letter-spacing: .4em; }
-.rejoin-button { margin-top: 10px; }
 
 /* Group page */
 .app { display: flex; flex-direction: column; min-height: 100dvh; }
@@ -109,17 +91,470 @@ textarea.input { resize: vertical; }
 .member.mine { border-color: rgb(232 116 59 / .6); box-shadow: 0 0 0 4px rgb(232 116 59 / .1), var(--shadow-soft); }
 .eyebrow { font-size: 12px; font-weight: 500; color: var(--accent); margin-bottom: 4px; }
 .brief { margin: 4px 0 0; font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bars { margin-top: 12px; display: grid; gap: 4px; }
+.bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.bar .lbl { width: 80px; color: var(--muted); }
+.track { position: relative; height: 8px; flex: 1; border-radius: 999px; background: var(--soft); }
+.fill { height: 8px; border-radius: 999px; transition: width .3s; }
+.num { width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .split { margin-top: 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--muted); }
+.divider { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
 .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #fff; font-weight: 600; font-size: 14px; flex-shrink: 0; }
 .mhead { display: flex; align-items: center; gap: 8px; }
 .you { border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; padding: 0 6px; margin-left: 6px; }
 .now { margin-top: 12px; background: var(--soft); border-radius: 12px; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; }
+.board-icon { width: 13px; height: 13px; flex-shrink: 0; }
+.stage svg.board-icon { position: static; }
+.board .bar .lbl, .board .split span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Canvas theme. Scoped to Board and List views so the UI around them keeps its own colours.
+   Teal and lime are too light for text on pale surfaces: use them as fills with ink text on top. */
+.board, .list, .landing {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --teal-ink: #0e6b63; --neon: #A0FF77; --mint: #F2FFF0;
+  --bg: #fff; --soft: rgb(22 49 74 / .06); --border: rgb(22 49 74 / .14); --dot: rgb(22 49 74 / .14);
+  --text: var(--ink); --muted: #4b6177; --accent: var(--teal); --accent-soft: rgb(37 181 169 / .12);
+  --ok: var(--neon);
+  --shadow-soft: 0 1px 2px rgb(8 18 31 / .05), 0 4px 14px rgb(8 18 31 / .06);
+  --shadow-lift: 0 2px 4px rgb(8 18 31 / .06), 0 12px 28px rgb(8 18 31 / .12);
+  --card-shadow: var(--shadow-soft);
+  color: var(--text);
+}
+/* The summary card is the focal point, so it takes the palette's mint. */
+.board .brain, .list .stack > .card:first-child { --soft: rgb(22 49 74 / .1); background: var(--mint); }
+/* Same card as the task bar: a thin navy tint, rounded corners and a soft shadow. */
+.board .node, .list .card, .list .task, .lp-project, .lp-member, .next-step, .zoom-bar, .lp-tool { border: 1px solid var(--border); }
+.board .node, .list .card, .lp-project, .lp-member { border-radius: 12px; }
+.list .stack > .card:last-child { --muted: var(--navy); border-color: transparent; background: transparent; box-shadow: none; }
+.list .sec-t { display: flex; align-items: center; gap: 6px; }
+.list .sec-t .board-icon { width: 15px; height: 15px; }
+.list .task .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.list .task .acts { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.list .owner .dot { background: var(--navy) !important; }
+.private .board-icon, .dec .board-icon { margin-right: 6px; vertical-align: -2px; }
+.board .btn, .list .btn, .landing .btn { color: var(--ink); }
+.list .input:focus, .landing .input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgb(37 181 169 / .25); }
+.board :focus-visible, .list :focus-visible, .landing :focus-visible { outline-color: var(--ink); }
+.board .member.mine, .list .task.mine { border-color: rgb(37 181 169 / .6); }
+.board .member.mine { box-shadow: var(--shadow-soft); }
+.board .eyebrow { color: var(--muted); }
+.board .brain .eyebrow { color: var(--navy); }
+.board .avatar { background: var(--navy); color: var(--mint); font-weight: 500; }
+.board .member.mine .avatar { background: var(--neon); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.board .you { background: var(--neon); color: var(--ink); }
+.board .mhead .dot { box-shadow: 0 0 0 1px var(--ink); }
+.board .chip.doing, .list .chip.doing, .landing .chip.doing { background: rgb(37 181 169 / .16); color: var(--teal-ink); }
+.board .chip.done, .list .chip.done, .landing .chip.done { background: var(--neon); color: var(--ink); }
+.board .mark, .list .mark { background: rgb(22 49 74 / .4); }
+/* Fairness sets member colours inline, hence !important. */
+.board .fair-row .fill, .list .fair-row .fill { background: var(--accent) !important; }
+
+/* Canvas text follows the app's type roles (see "Type, everywhere"): task titles are Manrope,
+   and counts, deadlines, times and codes are JetBrains Mono. Sizes here are canvas-only. */
+.next-task, .board .now > span:first-child:not(.small), .list .task .top > span:first-child, .lp-task, .lp-name {
+  font-family: var(--font-head), var(--font-sans), system-ui, sans-serif;
+}
+.board .split, .board .member > .small, .code-input { font-family: var(--font-mono), ui-monospace, monospace; }
+.board .eyebrow, .board .bar, .board .split, .board .mhead .small, .board .member > .small,
+.board .num, .list .num {
+  font-size: 12px; font-weight: 400; line-height: 1.4;
+}
+.board .bar .lbl { width: 88px; }
+.board .title { font-size: 18px; font-weight: 600; line-height: 1.25; }
+/* The brief shows in full; only very long ones scroll, so the board stays readable. */
+.board .brief { display: block; -webkit-line-clamp: unset; font-size: 13px; line-height: 1.5; color: var(--navy); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
+.board .now { font-size: 13px; line-height: 1.4; }
+
+/* Aurora backdrop. Each band moves by exactly one stripe, so the loop never jumps. */
+.aurora { position: relative; overflow: hidden; background: #fff; }
+.aurora-light { position: absolute; inset: 0; pointer-events: none; opacity: var(--aurora-opacity); }
+.aurora-fade .aurora-light { -webkit-mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); }
+.aurora-band {
+  /* The vw term keeps the tilted top edge above the corner however wide the screen is. */
+  position: absolute; top: calc(-40% - 25vw); left: -60%; width: 300%; height: calc(130% + 25vw); rotate: -14deg; will-change: transform;
+  background-size: calc(100% / 3) 100%; background-repeat: repeat-x;
+  -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 85%); mask-image: linear-gradient(to bottom, #000 20%, transparent 85%);
+}
+.aurora-band-a {
+  background-image: linear-gradient(90deg, transparent, var(--aurora-color-1) 18%, transparent 36%, var(--aurora-color-2) 52%, transparent 68%, var(--aurora-color-3) 84%, transparent);
+  animation: aurora-a var(--aurora-speed) linear infinite;
+}
+.aurora-band-b {
+  background-image: linear-gradient(90deg, transparent 10%, var(--aurora-color-4) 30%, transparent 55%, var(--aurora-color-5) 75%, transparent 95%);
+  opacity: .7; animation: aurora-b calc(var(--aurora-speed) * 1.4) linear infinite;
+}
+@keyframes aurora-a { to { transform: translateX(calc(-100% / 3)); } }
+@keyframes aurora-b { from { transform: translateX(calc(-100% / 3)); } to { transform: none; } }
+.canvas-aurora { position: absolute; inset: 0; }
+.board.dots, .list.dots { background: none; }
+.list { position: relative; }
+
+/* Human + AI pair, last update, and the next-step bar. */
+.pair { display: inline-flex; align-items: center; flex-shrink: 0; }
+.ai-badge { display: grid; place-items: center; width: 36px; height: 36px; margin-left: -10px; border-radius: 50%; background: #fff; color: var(--ink); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--border); }
+.ai-badge .board-icon, .ai-badge img { display: block; width: 20px; height: 20px; }
+.last-update { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
+.last-update > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.last-update > span:last-child { flex-shrink: 0; color: var(--muted); font-family: var(--font-mono), ui-monospace, monospace; }
+.next-step { position: absolute; z-index: 2; top: 12px; left: calc(50% - var(--panel, 0px) / 2); translate: -50%; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 24px - var(--panel, 0px)); padding: 8px 8px 8px 14px; border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); }
+.next-label { flex-shrink: 0; color: var(--muted); font-size: 12px; }
+.next-task { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.next-step .btn { flex-shrink: 0; }
+
+/* Front page and join page. */
+.landing { position: relative; min-height: 100dvh; overflow: hidden; color: var(--text); }
+.landing .page-inner.narrow { max-width: 440px; }
+.landing.page { padding-top: 72px; }
+.landing > :not(.aurora, .igloo-wordmark) { position: relative; }
+.landing .card { border-radius: 12px; }
+.landing .avatar { background: var(--navy); color: var(--mint); font-weight: 500; }
+.landing .lead, .landing .ctx, .lp-note { color: var(--navy); }
+.landing .small { color: var(--muted); }
+.lp-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 56px; align-items: center; max-width: 1200px; min-height: 100dvh; margin: 0 auto; padding: 40px 32px; }
+.lp-hero h1 { margin: 0; font-size: clamp(36px, 4.6vw, 58px); line-height: 1.06; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.lp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 20px; }
+.lp-tools > span { margin-right: 4px; color: var(--navy); font-size: 12px; }
+.lp-tool { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #fff; box-shadow: var(--card-shadow); }
+.lp-tool img, .lp-preview .ai-badge img { display: block; width: 20px; height: 20px; }
+.lp-preview { max-width: 520px; margin-top: 28px; }
+.lp-project { --soft: #D3ECDB; padding: 14px 16px; border-radius: 10px; background: var(--mint); box-shadow: var(--card-shadow); }
+.lp-project .eyebrow { color: var(--navy); }
+.lp-project .title { font-size: 16px; font-weight: 600; }
+.lp-project .bar { font-size: 12px; }
+.lp-project .bar .lbl { color: var(--navy); }
+.lp-project .num { color: var(--navy); }
+.lp-members { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.lp-member { position: relative; padding: 10px; border-radius: 8px; background: #fff; box-shadow: var(--card-shadow); }
+.lp-member::before { content: ""; position: absolute; top: -22px; left: 50%; width: 1px; height: 22px; background: var(--navy); opacity: .3; }
+.lp-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.lp-task { margin: 8px 0 6px; font-size: 12px; line-height: 1.35; }
+.lp-member .chip { display: inline-block; }
+/* Same height on both sides, so the tabs don't jump when switching. */
+@media (min-width: 961px) {
+  .lp-card { display: flex; flex-direction: column; min-height: 600px; }
+  .lp-card > div:not(.lp-tabs):not([hidden]) { display: flex; flex-direction: column; flex: 1; }
+  .lp-card .form { flex: 1; align-content: space-between; }
+}
+.lp-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: 10px; background: var(--soft); }
+.lp-tabs button { padding: 10px 8px; border: 0; border-radius: 7px; background: none; color: var(--navy); font-size: 12px; font-weight: 600; letter-spacing: .04em; transition: background .15s ease-out, color .15s ease-out; }
+.lp-tabs button:hover:not(.on) { background: #D3ECDB; }
+.lp-tabs button.on { background: var(--navy); color: var(--mint); }
+@media (pointer: coarse) { .lp-tabs button { min-height: 44px; } }
+.landing .pills button.on { border-color: var(--teal); background: var(--soft); color: var(--ink); }
+.lp-ai-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.lp-ai-grid button { display: grid; place-items: center; height: 68px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--navy); font-size: 13px; font-weight: 500; transition: background .15s ease-out, border-color .15s ease-out; }
+.lp-ai-grid button:hover { border-color: var(--teal); }
+.lp-ai-grid button.on { border-color: var(--teal); background: var(--soft); box-shadow: inset 0 0 0 1px var(--teal); color: var(--ink); }
+.lp-ai-grid img { display: block; width: 30px; height: 30px; }
+.lp-join .input { padding: 15px 16px; font-size: 15px; }
+.lp-join .code-input { font-size: 20px; }
+.lp-join .btn.big { padding: 16px; font-size: 15px; }
+.lp-note { margin: 14px 0 0; text-align: center; font-size: 12px; }
+@media (max-width: 960px) { .lp-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; min-height: 0; padding: 72px 16px 28px; } }
+@media (max-width: 560px) { .lp-preview { display: none; } .landing .two { grid-template-columns: minmax(0, 1fr); } }
+
+/* Zoom bar. Dragging the canvas only pans once someone has zoomed. */
+.board.zoomed { cursor: grab; touch-action: none; }
+.board.panning { cursor: grabbing; user-select: none; }
+.zoom-bar { position: absolute; z-index: 2; right: calc(12px + var(--panel, 0px)); bottom: 12px; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); cursor: default; }
+.zoom-bar button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: none; color: var(--ink); }
+.zoom-bar button:hover:not(:disabled) { background: var(--soft); }
+.zoom-bar .board-icon { width: 16px; height: 16px; }
+.zoom-bar input { width: 96px; accent-color: var(--navy); cursor: pointer; }
+.zoom-pct { width: 42px; text-align: center; font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) { .zoom-bar { gap: 8px; } .zoom-bar button { width: 44px; height: 44px; } }
+@media (max-width: 520px) { .zoom-bar input { display: none; } }
+
+/* Canvas motion: a lift on hover, and a beam round the card of anyone with a task in progress. */
+.board .member, .list .task { --lift: 0 6px 16px rgb(22 49 74 / .14); transition: translate .18s ease-out, box-shadow .18s ease-out; }
+.board .member:hover, .list .task:hover { translate: 0 -2px; box-shadow: var(--lift); }
+@property --beam { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.board .member.working::after, .lp-member.working::after {
+  content: ""; position: absolute; inset: -2px; padding: 2px; border-radius: 10px; pointer-events: none;
+  background: conic-gradient(from var(--beam), transparent 0 72%, var(--teal) 88%, var(--neon) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: beam 3.2s linear infinite;
+}
+@keyframes beam { to { --beam: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .board .member, .list .task { transition: none; }
+  .board .member:hover, .list .task:hover { translate: none; }
+  .board .member.working::after, .lp-member.working::after { animation: none; }
+  .board .flow { animation: none; }
+  .aurora-band { animation: none; }
+}
 
 .chip { flex-shrink: 0; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
 .chip.todo { background: var(--soft); color: var(--muted); }
 .chip.doing { background: rgb(212 137 26 / .15); color: var(--warn); }
 .chip.done { background: rgb(47 158 107 / .15); color: var(--ok); }
 
+/* Fairness */
+.fair-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.fair-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-top: 6px; }
+.fair-row .name { width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: rgb(43 38 34 / .25); }
+
+/* List view */
+.list { height: 100%; overflow-y: auto; padding: 16px; }
+.list .stack { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
+
+/* Side panel */
+.app nav { display: flex; border-bottom: 1px solid var(--border); padding: 0 8px; font-size: 12px; overflow-x: auto; flex-shrink: 0; }
+.app nav button { border: 0; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.app nav button.on { border-color: var(--accent); color: var(--text); }
+.pane { padding: 16px; overflow-y: auto; flex: 1; }
+.sec { margin-bottom: 20px; }
+.sec-t { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+/* Task cards. Status shows as a word plus an icon, and a left edge: none for To do, amber for In progress, quiet for Done. */
+.filters { margin-bottom: 16px; }
+.filters button { flex: 1 1 auto; padding: 5px 8px; white-space: nowrap; }
+.filters .count { margin-left: 2px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.empty { border: 1px dashed var(--border); border-radius: 12px; padding: 16px; text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.empty p { margin: 0 0 10px; }
+.empty p:last-child { margin: 0; }
+.task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 10px 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
+.task.mine { border-color: rgb(232 116 59 / .45); }
+.task.s-doing { box-shadow: inset 3px 0 0 var(--warn), var(--shadow-soft); }
+.task.s-done { background: var(--bg); box-shadow: none; }
+.task.open { box-shadow: var(--shadow-lift); }
+.task.s-doing.open { box-shadow: inset 3px 0 0 var(--warn), var(--shadow-lift); }
+.t-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.t-title { font-weight: 500; line-height: 1.35; cursor: pointer; overflow-wrap: anywhere; }
+.task .strike { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+.t-meta { margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 26px; }
+.owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); min-width: 0; }
+.owner .who { color: var(--text); white-space: nowrap; }
+.owner .ai { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--muted); }
+.chev:hover { background: var(--soft); color: var(--text); }
+.chev svg { transition: transform .15s; }
+.chev[aria-expanded="true"] svg { transform: rotate(180deg); }
+.t-err { margin: 8px 0 0; font-size: 12px; color: var(--bad); }
+.t-more { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 10px; font-size: 12px; }
+.t-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.t-facts > div { display: contents; }
+.t-facts dt { color: var(--muted); }
+.t-facts dd { margin: 0; }
+.t-info { margin: 0; background: var(--soft); border-radius: 10px; padding: 8px 10px; color: var(--muted); }
+.t-ai { display: flex; align-items: center; gap: 10px; background: var(--accent-soft); border-radius: 10px; padding: 8px 10px; }
+.t-ai .btn, .t-meta .btn { flex-shrink: 0; white-space: nowrap; }
+.t-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.t-actions .danger { margin-left: auto; }
+.linkbtn.danger:hover { color: var(--bad); }
+.t-confirm { border: 1px solid rgb(212 137 26 / .35); background: rgb(212 137 26 / .06); border-radius: 10px; padding: 10px; }
+.t-confirm p { margin: 0 0 8px; }
+.add-task { margin-top: 4px; }
+/* Type, everywhere: Inter for body text (the body font), Manrope for headings and card titles,
+   JetBrains Mono for codes and for status, counts, deadlines and times. */
+h1, .title, .sec-t, .t-title, .ai-task-title, .fair-head > span:first-child, .mhead > div > div:first-child {
+  font-family: var(--font-head), var(--font-sans), system-ui, sans-serif; letter-spacing: -.01em;
+}
+.chip, .due, .tasks .count, .date-in, .t-hist li .small, .t-note figcaption, .ev .small, .num, .palette .foot,
+.app header .pill {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+/* Task bar palette: ink #08121F, navy #16314A, teal #25B5A9, neon #A0FF77 (used least: only Done), mint #F2FFF0.
+   The shared tokens are redefined inside the task bar, so the board keeps the warm theme.
+   Amber and red stay for deadlines: they mean "soon" and "late". */
+.tasks, .app header, .app aside {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --teal-ink: #0e6b63; --neon: #A0FF77; --mint: #F2FFF0;
+}
+/* The whole side panel (every tab) and the task list in List view share the light palette. */
+.tasks, .app aside {
+  --text: var(--ink); --muted: #4b6177; --accent: var(--teal); --accent-soft: rgb(37 181 169 / .12);
+  --border: rgb(22 49 74 / .14); --soft: rgb(22 49 74 / .06); --bg: var(--mint);
+  --shadow-soft: 0 1px 2px rgb(8 18 31 / .05), 0 4px 14px rgb(8 18 31 / .06);
+  --shadow-lift: 0 2px 4px rgb(8 18 31 / .06), 0 12px 28px rgb(8 18 31 / .12);
+  color: var(--text);
+}
+.app aside .pane { background: var(--mint); }
+.tasks .btn, .app aside .btn { color: var(--ink); }
+.tasks .input:focus, .tasks .date-in:focus, .app aside .input:focus { box-shadow: 0 0 0 3px rgb(37 181 169 / .25); }
+.tasks .task.mine { border-color: rgb(37 181 169 / .6); }
+.tasks .task.s-doing { box-shadow: inset 3px 0 0 var(--teal), var(--shadow-soft); }
+.tasks .task.s-doing.open { box-shadow: inset 3px 0 0 var(--teal), var(--shadow-lift); }
+.tasks .task.s-done { background: rgb(22 49 74 / .03); }
+.tasks .chip.doing { background: rgb(37 181 169 / .16); color: var(--teal-ink); }
+.tasks .chip.done { background: var(--neon); color: var(--ink); }
+
+/* Top bar: a white pill floating over the page, like a site nav. Plain text links, and one dark pill
+   (Copy update for group chat) at the far right for the main action. */
+.app header { background: #fff; color: var(--ink); --text: var(--ink); --muted: #4b6177; --border: rgb(22 49 74 / .12); --accent: var(--ink); }
+/* Project name on top, course and days underneath (the markup has them the other way round). */
+.app header .proj { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 1px; min-width: 0; line-height: 1.25; }
+.app header .ctx { font-size: 11px; }
+.app header .title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
+.app header .ctx { white-space: nowrap; }
+.app header .pill { background: rgb(22 49 74 / .06); color: var(--ink); }
+.app header .seg { background: rgb(22 49 74 / .06); border-radius: 999px; }
+.app header .seg button { border-radius: 999px; color: var(--muted); }
+.app header .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgb(8 18 31 / .12); }
+.app header .ghost { border: 0; background: transparent; color: var(--ink); font-size: 13px; font-weight: 500; border-radius: 999px; padding: 6px 10px; }
+.app header .ghost:hover { background: rgb(22 49 74 / .06); }
+.app header .btn { order: 10; background: var(--ink); color: var(--mint); border-radius: 999px; padding: 9px 18px; font-size: 13px; box-shadow: none; }
+.app header .btn:hover { filter: none; background: var(--navy); }
+.app header .me { font-size: 13px; }
+.app header .linkbtn:hover { color: var(--ink); }
+
+/* Side panel tab bar (Tasks, Your AI, What's new, Decisions): mint strip, ink for the open tab, teal underline. */
+.app nav {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --mint: #F2FFF0;
+  background: var(--mint); border-bottom-color: rgb(22 49 74 / .14);
+}
+.app nav button { color: #4b6177; }
+.app nav button:hover { color: var(--ink); }
+.app nav button.on { color: var(--ink); border-color: var(--teal); }
+/* Task deadline: plain, then a soft warning when close, a clear one when late. The words say it too. */
+.due { flex-shrink: 0; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11px; color: var(--muted); border: 1px solid var(--border); }
+.due.soon { color: var(--warn); border-color: rgb(212 137 26 / .35); background: rgb(212 137 26 / .06); }
+.due.late { color: var(--bad); border-color: rgb(214 69 69 / .4); background: rgb(214 69 69 / .06); font-weight: 500; }
+.due-edit { display: flex; align-items: center; gap: 8px; }
+.date-in { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 2px 6px; font-size: 12px; color: var(--text); }
+.date-in:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgb(232 116 59 / .15); }
+.t-note { margin: 0; background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+.t-note figcaption { display: flex; align-items: center; gap: 6px; }
+.t-note blockquote { margin: 4px 0 0; color: var(--text); overflow-wrap: anywhere; }
+.t-hist ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.t-hist li { display: flex; justify-content: space-between; gap: 8px; }
+.t-hist li .small { flex-shrink: 0; }
+@media (pointer: coarse) { .task .sm, .chev, .task select.hand { min-height: 36px; } .chev { width: 36px; } }
+/* "Use my AI" lands here */
+.ai-task { border: 1px solid rgb(232 116 59 / .45); background: var(--accent-soft); border-radius: 12px; padding: 12px; margin-bottom: 20px; outline: none; }
+.ai-task:focus-visible { box-shadow: 0 0 0 3px rgb(232 116 59 / .25); }
+.ai-task-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ai-task .eyebrow { margin-bottom: 2px; }
+.ai-task-title { font-weight: 600; overflow-wrap: anywhere; }
+.steps { margin: 10px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.steps b { color: var(--text); font-weight: 500; }
+.linkbtn.inline { color: var(--accent); text-decoration: underline; font-weight: 500; }
+.private { background: var(--soft); border-radius: 12px; padding: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.help { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.help b { color: var(--text); font-weight: 500; }
+.preview { margin-top: 8px; border-radius: 12px; padding: 8px 12px; font-size: 12px; }
+.preview.ok { border: 1px solid rgb(47 158 107 / .3); background: rgb(47 158 107 / .05); }
+.preview.bad { border: 1px solid rgb(214 69 69 / .3); background: rgb(214 69 69 / .05); color: var(--bad); }
+.live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.live .dot { width: 6px; height: 6px; background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.ev { display: flex; gap: 10px; padding: 6px 4px; font-size: 12px; }
+.ev .dot { margin-top: 5px; }
+.ev .msg { flex: 1; }
+.ev .small { flex-shrink: 0; }
+.dec-wait { border: 1px solid rgb(212 137 26 / .3); background: rgb(212 137 26 / .05); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.dec { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-soft); }
+.dec-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+.badge { color: var(--warn); margin-left: 4px; }
+
+/* Toasts */
+.toasts { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: none; width: max-content; max-width: calc(100vw - 32px); }
+.toast { background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; font-size: 14px; box-shadow: var(--shadow-lift); }
+.toast.ok { border-color: rgb(47 158 107 / .3); }
+.toast.bad { border-color: rgb(214 69 69 / .4); color: var(--bad); }
+
+/* Quick actions */
+.scrim { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: 15vh 16px 0; background: rgb(43 38 34 / .2); backdrop-filter: blur(2px); }
+.palette { width: 100%; max-width: 520px; overflow: hidden; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lift); }
+.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--border); padding: 12px 16px; font-size: 14px; outline: none; }
+.palette .items { max-height: 320px; overflow-y: auto; padding: 6px; }
+.palette .item { display: flex; width: 100%; justify-content: space-between; gap: 12px; border: 0; background: none; border-radius: 12px; padding: 10px 12px; text-align: left; font-size: 14px; }
+.palette .item.sel { background: var(--soft); }
+.palette .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette .foot { display: flex; gap: 12px; border-top: 1px solid var(--border); padding: 8px 16px; font-size: 12px; color: var(--muted); }
+/* Other tabs in the palette. Teal is too light for text on mint, so links and labels use the darker teal. */
+.app aside .eyebrow, .app aside .linkbtn.inline { color: var(--teal-ink); }
+.app aside .ai-task { border-color: rgb(37 181 169 / .55); background: rgb(37 181 169 / .1); }
+.app aside .ai-task:focus-visible { box-shadow: 0 0 0 3px rgb(37 181 169 / .3); }
+.app aside .live .dot { background: var(--teal); }
+.app aside .dec { box-shadow: var(--shadow-soft); }
+
+/* Floating side panel. Wide screens: a card over the board, hidden with the chevron and brought back with
+   "Tasks and team". Phones: it stays below the board, and hiding folds it to the tab strip. */
+.app nav { align-items: center; overflow: hidden; }
+/* Tabs still scroll sideways on narrow screens, without a scrollbar crowding the strip. */
+.app nav .tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.app nav .panel-toggle { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; margin: 0 0 0 4px; padding: 0;
+  border: 1px solid transparent; border-radius: 8px; color: #4b6177; }
+.app nav .panel-toggle:hover { background: rgb(22 49 74 / .06); color: #08121F; }
+.app nav .panel-toggle:focus-visible, .panel-show:focus-visible { outline-color: #25B5A9; }
+.panel-show { display: none; }
+@media (min-width: 861px) {
+  .body { position: relative; }
+  .app aside { position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 5; border: 1px solid rgb(22 49 74 / .14);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 2px 4px rgb(8 18 31 / .06), 0 16px 40px rgb(8 18 31 / .14); }
+  .body.panel-hidden aside { display: none; }
+  .body.panel-open .list { padding-right: 416px; }
+  .panel-show { display: inline-flex; align-items: center; gap: 6px; position: absolute; top: 12px; right: 12px; z-index: 5;
+    border: 0; border-radius: 999px; padding: 8px 14px; background: #08121F; color: #F2FFF0;
+    font: 500 12px var(--font-sans), system-ui, sans-serif; box-shadow: 0 4px 16px rgb(8 18 31 / .18); }
+  .panel-show:hover { background: #16314A; }
+}
+
+/* Floating top bar: a pill with the aurora showing around it. */
+/* The aurora sits behind the whole page, so the floating top bar and panel float over it. */
+.app > .body { position: relative; }
+.app .board.dots, .app .list.dots { background: none; }
+.app header { position: relative; z-index: 6; align-self: center; max-width: calc(100% - 24px); margin: 12px 12px 0;
+  padding: 6px 6px 6px 22px; gap: 8px 20px; border: 1px solid rgb(22 49 74 / .1); border-radius: 999px;
+  box-shadow: 0 2px 4px rgb(8 18 31 / .06), 0 12px 32px rgb(8 18 31 / .14); }
+/* Too narrow for one line: full width, softer corners. */
+@media (max-width: 960px) { .app header { align-self: stretch; max-width: none; border-radius: 24px; padding: 8px 8px 8px 20px; } }
+@media (max-width: 860px) { .app header { margin: 8px 8px 0; border-radius: 20px; padding: 12px 12px 12px 16px; } }
+
+/* Phase header: name on the left, done/total on the right. */
+.phase-t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.phase-t .num { width: auto; font-size: 12px; font-weight: 500; }
+.phase-t > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.phase-t .board-icon { width: 15px; height: 15px; }
+.t-facts .board-icon { margin-right: 5px; vertical-align: -2px; }
+/* Quick actions in the top bar: an icon and its shortcut. */
+.app header .qa { gap: 6px; color: var(--muted); }
+.app header .qa:hover { color: var(--ink); }
+.app header .qa kbd { font: 500 11px var(--font-mono), ui-monospace, monospace; border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; background: #fff; }
+/* Top bar icon buttons (Invite, Copy summary): round, same height as the rest of the bar. */
+.app header .icon-btn { width: 38px; height: 38px; padding: 0; border-radius: 999px; }
+/* Board / List as icons. */
+.app header .seg .view-btn { display: grid; place-items: center; width: 34px; height: 28px; padding: 0; }
+
+/* Brand: the "igloo." wordmark in Satoshi Bold at the very top left of the page, level with the floating top bar.
+   The top bar keeps clear of it: room on the left on wide screens, starts after it on medium ones, goes below it on phones. */
+.app { position: relative; }
+.igloo-wordmark {
+  /* As tall as the top bar: the letters (top of the "i" to the foot of the "g") are 1em, and the bar is 51px. */
+  position: absolute; top: 12px; left: 24px; z-index: 7;
+  font-family: "Satoshi", var(--font-head), sans-serif; font-size: 51px; font-weight: 700;
+  letter-spacing: -0.055em; line-height: 1; color: #16314A; text-decoration: none; white-space: nowrap;
+}
+.igloo-wordmark:hover { color: #08121F; }
+.igloo-wordmark:focus-visible { outline: 2px solid #25B5A9; outline-offset: 4px; border-radius: 4px; }
+@media (min-width: 961px) { .app header { max-width: calc(100% - 340px); } }
+@media (min-width: 861px) and (max-width: 960px) { .app header { margin-left: 160px; } }
+@media (max-width: 860px) {
+  .igloo-wordmark { font-size: 36px; top: 12px; left: 16px; }
+  .app header { margin-top: 58px; }
+}
+
+/* ===== From main: dropdown, create form pills, files, links, task cells on the board ===== */
+.dropdown { position: relative; min-width: 0; }
+.dropdown-trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 12px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; text-align: left; }
+.dropdown-trigger span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown.compact .dropdown-trigger { padding: 4px 8px; }
+.dropdown-chevron { width: 7px; height: 7px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); margin: -3px 2px 0; flex-shrink: 0; }
+.dropdown-trigger[aria-expanded="true"] { border-color: var(--accent); }
+.dropdown-options { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; max-height: 180px; overflow-y: auto; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow-lift); }
+.dropdown.compact .dropdown-options { left: auto; min-width: 140px; }
+.dropdown-options button { display: block; width: 100%; border: 0; background: transparent; border-radius: 8px; padding: 8px; text-align: left; font-size: 12px; overflow-wrap: anywhere; }
+.dropdown-options button:hover, .dropdown-options button:focus-visible, .dropdown-options button[aria-selected="true"] { background: var(--accent-soft); }
+.optional { font-weight: 400; color: var(--muted); }
+.task-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; padding: 6px 8px; cursor: text; }
+.task-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgb(232 116 59 / .15); }
+.task-input input { flex: 1; min-width: 140px; border: 0; outline: none; background: transparent; padding: 4px; font-size: 12px; }
+.task-pill { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; border-radius: 999px; background: var(--accent-soft); color: var(--text); padding: 3px 4px 3px 10px; font-size: 12px; }
+.task-pill span { overflow-wrap: anywhere; }
+.task-pill button { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; }
+.task-pill button:hover, .task-pill button:focus-visible { background: rgb(232 116 59 / .18); color: var(--accent); }
+.rejoin-button { margin-top: 10px; }
 /* Workspace files */
 .file-node { width: 245px; padding: 12px 14px; text-align: left; border-color: #efae8e; box-shadow: var(--shadow-soft); }
 .file-card { position: relative; }
@@ -154,57 +589,7 @@ textarea.input { resize: vertical; }
 .file-actions, .task-files { margin-top: 10px; }
 .task-files button { max-width: 100%; overflow-wrap: anywhere; text-align: left; }
 .file-source { background: var(--soft); border-radius: 12px; padding: 12px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 400px; overflow-y: auto; }
-
-/* List view */
-.list { height: 100%; overflow-y: auto; padding: 16px; }
-.list .stack { max-width: 640px; margin: 0 auto; display: grid; gap: 16px; }
-
-/* Side panel */
-.app nav { display: flex; border-bottom: 1px solid var(--border); padding: 0 8px; font-size: 12px; overflow-x: auto; flex-shrink: 0; }
-.app nav button { border: 0; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
-.app nav button.on { border-color: var(--accent); color: var(--text); }
-.pane { padding: 16px; overflow-y: auto; flex: 1; }
-.sec { margin-bottom: 20px; }
-.sec-t { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
-.task { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 12px; box-shadow: var(--shadow-soft); margin-bottom: 6px; }
-.task.mine { border-color: rgb(232 116 59 / .4); }
-.task .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .task .strike, .task-node .strike { color: var(--muted); text-decoration: line-through; }
-.task .acts { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
-.owner { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.private { background: var(--soft); border-radius: 12px; padding: 8px 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.help { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
-.help b { color: var(--text); font-weight: 500; }
-.preview { margin-top: 8px; border-radius: 12px; padding: 8px 12px; font-size: 12px; }
-.preview.ok { border: 1px solid rgb(47 158 107 / .3); background: rgb(47 158 107 / .05); }
-.preview.bad { border: 1px solid rgb(214 69 69 / .3); background: rgb(214 69 69 / .05); color: var(--bad); }
-.live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-.live .dot { width: 6px; height: 6px; background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
-.ev { display: flex; gap: 10px; padding: 6px 4px; font-size: 12px; }
-.ev .dot { margin-top: 5px; }
-.ev .msg { flex: 1; }
-.ev .small { flex-shrink: 0; }
-.dec-wait { border: 1px solid rgb(212 137 26 / .3); background: rgb(212 137 26 / .05); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
-.dec { border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-soft); }
-.dec-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
-.badge { color: var(--warn); margin-left: 4px; }
-
-/* Toasts */
-.toasts { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: none; width: max-content; max-width: calc(100vw - 32px); }
-.toast { background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; font-size: 14px; box-shadow: var(--shadow-lift); }
-.toast.ok { border-color: rgb(47 158 107 / .3); }
-.toast.bad { border-color: rgb(214 69 69 / .4); color: var(--bad); }
-
-/* Quick actions */
-.scrim { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: 15vh 16px 0; background: rgb(43 38 34 / .2); backdrop-filter: blur(2px); }
-.palette { width: 100%; max-width: 520px; overflow: hidden; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lift); }
-.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--border); padding: 12px 16px; font-size: 14px; outline: none; }
-.palette .items { max-height: 320px; overflow-y: auto; padding: 6px; }
-.palette .item { display: flex; width: 100%; justify-content: space-between; gap: 12px; border: 0; background: none; border-radius: 12px; padding: 10px 12px; text-align: left; font-size: 14px; }
-.palette .item.sel { background: var(--soft); }
-.palette .item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.palette .foot { display: flex; gap: 12px; border-top: 1px solid var(--border); padding: 8px 16px; font-size: 12px; color: var(--muted); }
 
 /* Board: task cells and free file nodes */
 .task-node { width: 230px; padding: 12px 14px; box-shadow: var(--shadow-soft); cursor: grab; touch-action: none; user-select: none; }
@@ -233,3 +618,23 @@ textarea.input { resize: vertical; }
 .file-row .link-service { font-size: 10px; }
 .file-row .link-host { display: none; }
 .link-url { margin-top: 8px; overflow-wrap: anywhere; }
+
+/* Main's board pieces in the canvas theme */
+.board .task-node, .board .file-node { border-radius: 12px; border-color: var(--border); }
+.board .task-node.mine { border-color: rgb(37 181 169 / .6); box-shadow: var(--shadow-soft); }
+.board .task-node.working { box-shadow: 0 0 0 3px rgb(37 181 169 / .18), var(--shadow-soft); }
+.board .task-node-top strong { font-family: var(--font-head), var(--font-sans), sans-serif; font-weight: 600; font-size: 14px; color: var(--ink); }
+.board .task-node .pair .avatar, .board .task-node .pair .ai-badge { width: 26px; height: 26px; font-size: 11px; }
+.board .task-node .ai-badge img, .board .task-node .ai-badge .board-icon { width: 15px; height: 15px; }
+.board .task-node .ai-badge { margin-left: -8px; }
+.board .task-node-owner { gap: 8px; }
+.board .file-node:hover { background: var(--mint); }
+.board-reset { top: 12px; right: calc(12px + var(--panel, 0px)); }
+.task .t-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.app aside .file-row:hover { background: rgb(37 181 169 / .08); }
+.app aside .dropdown-options button:hover, .app aside .dropdown-options button[aria-selected="true"] { background: rgb(37 181 169 / .12); }
+.landing .task-pill, .landing .task-input:focus-within { --accent-soft: rgb(37 181 169 / .14); }
+.landing .task-input:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px rgb(37 181 169 / .25); }
+.landing .task-pill { background: rgb(37 181 169 / .14); }
+.landing .task-pill button:hover { background: rgb(37 181 169 / .25); color: var(--ink); }
+.device-link { margin: 8px 16px 0; position: relative; z-index: 2; }

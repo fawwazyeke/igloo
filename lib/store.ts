@@ -7,7 +7,7 @@ import { empty, loadActivityId, loadFileBytes, loadProject, loadSession, project
 import {
   COLORS, FILE_ACCEPT, FILE_LIMIT, LIMIT, PHASES, clean, cleanText, cleanUrl, isCode, isDate, isToken, linkName, matchTask, publicMember,
   type Activity, type AgentContext, type Decision, type Member, type Note, type Phase,
-  type Project, type ProjectFile, type Result, type Status, type Task, type UpdateBlock,
+  type Project, type ProjectFile, type Result, type Status, type Task, type TaskNote, type UpdateBlock,
 } from "./core";
 
 const file = () => resolve(process.env.IGLOO_DATA_FILE ?? "data/db.json");
@@ -30,8 +30,9 @@ function tx<T>(by: Selector, fn: (db: DB) => T): T | Promise<T> {
 
 const now = () => new Date().toISOString();
 const token = () => randomBytes(32).toString("hex");
-function log(db: DB, project_id: string, member_id: string | null, kind: string, message: string) {
-  db.activity.push({ id: ++db.seq, project_id, member_id, kind, message, created_at: now() });
+// task_id links an event to its task, for the task's own history on its card.
+function log(db: DB, project_id: string, member_id: string | null, kind: string, message: string, task_id?: string) {
+  db.activity.push({ id: ++db.seq, project_id, member_id, kind, message, created_at: now(), task_id: task_id ?? null });
 }
 const nameOf = (db: DB, id: string | null) => db.members.find((m) => m.id === id)?.name ?? "Someone";
 const findTask = (db: DB, me: Member, id: string) => db.tasks.find((t) => t.id === id && t.project_id === me.project_id);
@@ -66,13 +67,23 @@ export async function getBoard(slug: string) {
   const project = db.projects.find((p) => p.slug === slug);
   if (!project) return null;
   const of = <T extends { project_id: string }>(xs: T[]) => xs.filter((x) => x.project_id === project.id);
+  const tasks = of(db.tasks).sort((a, b) => a.position - b.position);
+  // Newest note per task. Only notes saved with a task_id count; older notes are never guessed from their text.
+  const latestNotes: Record<string, TaskNote> = {};
+  for (const n of of(db.notes)) {
+    const t = n.task_id ? tasks.find((x) => x.id === n.task_id) : undefined;
+    if (!t) continue;
+    const prefix = `${t.title}: `;
+    latestNotes[t.id] = { text: n.text.startsWith(prefix) ? n.text.slice(prefix.length) : n.text, member_id: n.source_member_id, created_at: n.created_at };
+  }
   return {
     project,
     members: of(db.members).map(publicMember),
-    tasks: of(db.tasks).sort((a, b) => a.position - b.position),
+    tasks,
     decisions: of(db.decisions),
     files: of(db.project_files).map(publicFile),
     activity: of(db.activity).slice(-60).reverse(),
+    latestNotes,
   };
 }
 
@@ -289,7 +300,7 @@ function claimIn(db: DB, me: Member, t: Task): Result {
   if (t.owner_member_id) return { error: `${nameOf(db, t.owner_member_id)} already has this` };
   t.owner_member_id = me.id;
   t.claimed_at = now();
-  log(db, me.project_id, me.id, "claim", `${me.name} claimed ${t.title}`);
+  log(db, me.project_id, me.id, "claim", `${me.name} claimed ${t.title}`, t.id);
   return { ok: `You claimed ${t.title}` };
 }
 function statusIn(db: DB, me: Member, t: Task, status: Status): Result {
@@ -299,14 +310,14 @@ function statusIn(db: DB, me: Member, t: Task, status: Status): Result {
   t.status = status;
   t.done_at = status === "done" ? now() : null;
   const verb = status === "done" ? "finished" : status === "doing" ? "started" : "moved back to todo:";
-  log(db, me.project_id, me.id, status === "done" ? "done" : "status", `${me.name} ${verb} ${t.title}`);
+  log(db, me.project_id, me.id, status === "done" ? "done" : "status", `${me.name} ${verb} ${t.title}`, t.id);
   return { ok: status === "done" ? "Marked done" : status === "doing" ? "Started" : "Moved back to todo" };
 }
-function noteIn(db: DB, me: Member, text: string): Result {
+function noteIn(db: DB, me: Member, text: string, task_id?: string): Result {
   const t = clean(text, LIMIT.storedNote);
   if (!t) return { error: "Note is empty" };
-  db.notes.push({ id: randomUUID(), project_id: me.project_id, text: t, source_member_id: me.id, created_at: now() });
-  log(db, me.project_id, me.id, "note", `${me.name}: ${t}`);
+  db.notes.push({ id: randomUUID(), project_id: me.project_id, text: t, source_member_id: me.id, created_at: now(), task_id: task_id ?? null });
+  log(db, me.project_id, me.id, "note", `${me.name}: ${t}`, task_id);
   return { ok: "Note added" };
 }
 
@@ -331,7 +342,7 @@ export async function unclaimTask(me: Member, taskId: string): Promise<Result> {
     if (!t) return { error: "Task not found" };
     if (t.owner_member_id !== m.id) return { error: "Only the owner can unclaim" };
     Object.assign(t, { owner_member_id: null, status: "todo", claimed_at: null, done_at: null });
-    log(db, m.project_id, m.id, "unclaim", `${m.name} unclaimed ${t.title}`);
+    log(db, m.project_id, m.id, "unclaim", `${m.name} unclaimed ${t.title}`, t.id);
     return { ok: "Unclaimed" };
   });
 }
@@ -346,8 +357,21 @@ export async function reassignTask(me: Member, taskId: string, toId: string): Pr
     const was = t.owner_member_id ? ` (was ${nameOf(db, t.owner_member_id)})` : "";
     Object.assign(t, { owner_member_id: to.id, claimed_at: now() });
     if (t.status === "done") Object.assign(t, { status: "doing", done_at: null });
-    log(db, m.project_id, m.id, "claim", `${m.name} gave ${t.title} to ${to.id === m.id ? "themself" : to.name}${was}`);
+    log(db, m.project_id, m.id, "claim", `${m.name} gave ${t.title} to ${to.id === m.id ? "themself" : to.name}${was}`, t.id);
     return { ok: `Handed to ${to.id === m.id ? "you" : to.name}` };
+  });
+}
+// A task's own deadline. Anyone can set or clear it, like handing a task over, and it's logged.
+export async function setTaskDue(me: Member, taskId: string, due: string | null): Promise<Result> {
+  if (due !== null && !isDate(due)) return { error: "Deadline must look like 2026-11-30" };
+  return tx({ projectId: me.project_id }, (db) => {
+    const m = live(db, me), t = findTask(db, me, taskId);
+    if (!m) return gone;
+    if (!t) return { error: "Task not found" };
+    if (t.due_date === due) return { ok: "No change" };
+    t.due_date = due;
+    log(db, m.project_id, m.id, "task", due ? `${m.name} set ${t.title} due ${due}` : `${m.name} cleared the deadline on ${t.title}`, t.id);
+    return { ok: due ? "Deadline set" : "Deadline cleared" };
   });
 }
 export async function addTask(me: Member, title: string, phase: Phase): Promise<Result> {
@@ -381,7 +405,7 @@ export async function applyUpdates(me: Member, blocks: UpdateBlock[]): Promise<B
       if (t.owner_member_id && t.owner_member_id !== m.id) return { task: t.title, ok: false, message: `${nameOf(db, t.owner_member_id)} owns this task` };
       const done: string[] = [];
       if (b.status) { statusIn(db, m, t, b.status); done.push(b.status); }
-      if (b.note) { noteIn(db, m, `${t.title}: ${b.note}`); done.push("note added"); }
+      if (b.note) { noteIn(db, m, `${t.title}: ${b.note}`, t.id); done.push("note added"); }
       return { task: t.title, ok: true, message: done.join(", ") };
     });
   });

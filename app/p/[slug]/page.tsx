@@ -28,6 +28,7 @@ export default async function GroupPage({ params, searchParams }: { params: Prom
       decisions={board.decisions}
       activity={board.activity}
       files={board.files}
+      latestNotes={board.latestNotes}
     />
   );
 }

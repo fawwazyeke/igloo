@@ -92,5 +92,8 @@ CREATE INDEX IF NOT EXISTS project_files_project_created ON project_files (proje
 ALTER TABLE project_files ADD COLUMN IF NOT EXISTS url text;
 ALTER TABLE project_files DROP CONSTRAINT IF EXISTS project_files_kind_check;
 ALTER TABLE project_files ADD CONSTRAINT project_files_kind_check CHECK (kind IN ('text', 'pdf', 'slides', 'document', 'link'));
+-- Notes and events remember their task, for each task's own history.
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES tasks ON DELETE SET NULL;
+ALTER TABLE activity ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES tasks ON DELETE SET NULL;
 
 COMMIT;

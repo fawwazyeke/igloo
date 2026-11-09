@@ -22,6 +22,8 @@ function upgrade(pool: Pool) {
     ALTER TABLE project_files ADD COLUMN IF NOT EXISTS url text;
     ALTER TABLE project_files DROP CONSTRAINT IF EXISTS project_files_kind_check;
     ALTER TABLE project_files ADD CONSTRAINT project_files_kind_check CHECK (kind IN ('text', 'pdf', 'slides', 'document', 'link'));
+    ALTER TABLE notes ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES tasks ON DELETE SET NULL;
+    ALTER TABLE activity ADD COLUMN IF NOT EXISTS task_id uuid REFERENCES tasks ON DELETE SET NULL;
   `).then(() => undefined, (err) => { upgraded = undefined; throw err; });
   return upgraded;
 }
@@ -55,7 +57,7 @@ const tables = {
   members: "id, project_id, name, ai_tool, color, last_seen_at, agent_token, session_token, device_code_hash, device_expires_at",
   tasks: "id, project_id, title, phase, position, due_date, owner_member_id, status, claimed_at, done_at",
   decisions: "id, project_id, text, created_by, approved_by, created_at",
-  notes: "id, project_id, text, source_member_id, created_at",
+  notes: "id, project_id, text, source_member_id, created_at, task_id",
   project_files: fileColumns,
 } as const;
 
@@ -142,8 +144,8 @@ async function saveProject(client: PoolClient, before: DB, after: DB) {
   const entries = after.activity.filter((row) => row.id > before.seq);
   if (entries.length) {
     await client.query(`
-      INSERT INTO activity (project_id, member_id, kind, message, created_at)
-      SELECT project_id, member_id, kind, message, created_at
+      INSERT INTO activity (project_id, member_id, kind, message, created_at, task_id)
+      SELECT project_id, member_id, kind, message, created_at, task_id
       FROM jsonb_populate_recordset(NULL::activity, $1)
       ORDER BY id
     `, [JSON.stringify(entries)]);
