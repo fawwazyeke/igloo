@@ -1,14 +1,105 @@
-# Igloo
+# 🧊 Igloo
 
-No AI on our side. Just the shared brain your AIs plug into.
+**No AI on our side. Just the shared brain your AIs plug into.**
 
-A group project board where every member keeps their own AI (Claude, ChatGPT, Gemini, Cursor…). Each member's AI gets a private link with the shared state, and reports progress back.
+Igloo is a group project board for teams where every member works with their own AI. One person uses Claude, another uses ChatGPT, someone else lives in Cursor or Gemini. None of those AIs know what the others are doing. Igloo is the neutral shared place they all plug into.
 
-- **Full idea and rules:** [docs/SPEC.md](docs/SPEC.md)
-- **Build order and checks:** [docs/PLAN.md](docs/PLAN.md)
-- **Target look of the group page:** [docs/group-page-sample.html](docs/group-page-sample.html) (open it in a browser)
+Each member gets a private agent link holding the shared project state: the brief, who owns what, the decisions the team agreed on, and what is already done. Their AI reads it, does the work, and reports progress back. Everyone sees one live board.
 
-## Run it
+Igloo itself never calls any AI or LLM API. All the intelligence comes from the members' own AIs. Our side is plain data, links and simple rules.
+
+## Why
+
+Every group project starts in a WhatsApp or KakaoTalk chat. Then everyone goes off and works with their own AI, and context gets lost:
+
+* Two people do the same task.
+* Someone's AI ignores a decision the group already made.
+* Nobody knows who is behind until the night before the deadline.
+
+Igloo fixes that without asking anyone to switch tools.
+
+## How it works
+
+1. **Create** a project with a name, due date, brief and a task list. Lines like `Research`, `Build` or `Present` start a new phase.
+2. **Share** the group link and the 6 digit join code in your group chat.
+3. **Join** with your name and the AI you use. No accounts, no passwords.
+4. **Connect your AI.** Copy your private agent link (or the full text) into your AI.
+5. **Report back.** Your AI replies with update blocks. Paste them in, or let a coding agent send them directly.
+6. **Stay in sync** on one live board with tasks, progress, fairness and decisions.
+
+## Features
+
+* **Atomic task claims.** A task has one owner. Two people can never claim the same task.
+* **Private agent links** at `/a/<token>`: plain text written for an AI, read only, regenerated on every request.
+* **Paste back with preview.** See exactly which task matched and what will change before saving.
+* **Live board and list views** with member cards, phase progress and an activity feed that refreshes every 3 seconds, plus toasts for teammates' events.
+* **Decisions that need a second person.** Anyone can suggest one, but a different member has to agree. Agreed decisions are locked and show up on every agent page as rules to follow.
+* **Fairness bar** showing each member's share of finished work and who is falling behind.
+* **Group chat digest.** One click copies a ready update for WhatsApp or KakaoTalk: done today, in progress, unclaimed, and who is behind.
+* **Shared files and links.** Upload source files, HTML, PDF, PowerPoint or Word files (up to 2 MB each), attach them to tasks, and preview them on the board. Agents can read and share them too.
+* **Quick actions.** Press **N** or **⌘K / Ctrl K** to claim, start, finish, agree, or add a task by typing.
+* **Rejoin on another device** with a one time link that expires after 10 minutes.
+
+## Connecting your AI
+
+There are three ways in, from simplest to most direct.
+
+**Chat apps** (ChatGPT, Claude, Gemini, phone apps)
+Click **Copy as text** in the **Your AI** tab, paste it into your chat, then paste the AI's reply back into Igloo.
+
+**Coding agents with a shell** (Claude Code, Codex, Cursor)
+Give them the agent link. They read it with `curl` and report progress with a POST to the same link.
+
+**MCP clients**
+
+```bash
+claude mcp add --transport http igloo "https://<your-domain>/api/mcp?token=<agent-token>"
+```
+
+MCP tools: `get_context`, `list_tasks`, `claim_task`, `update_task`, `add_note`, `share_link`, `upload_file`.
+
+### The update format
+
+This is the whole contract between any AI and Igloo:
+
+```text
+IGLOO UPDATE
+task: Survey 30 students on coffee habits
+status: done
+note: 32 responses, most buy coffee before 9am
+```
+
+* Use one block per task, up to 20 in a single reply.
+* `status` is `doing` or `done`. Common aliases such as "in progress", "started", "finished" and "completed" also work.
+* `note` is optional, one line, at most 280 characters.
+* The parser is tolerant of markdown, quotes and casing, so most AI replies work as is.
+* An AI can only update its own member's tasks or unclaimed ones. Reporting an unclaimed task claims it.
+
+### What an agent can and can't do
+
+Agents **can** read the project, claim unclaimed tasks, update their member's tasks, add notes, and share files and links.
+
+Agents **can't** touch teammates' tasks, create tasks, suggest or agree to decisions, reassign work, or join and leave. Those stay human only, in the web app.
+
+## Security
+
+* Agent tokens and session tokens are separate 256 bit random values. A member only ever receives their own agent token.
+* Agent GET requests are read only. Every write is scoped to the token owner.
+* All input is trimmed, length capped and format checked.
+* Joins, paste backs, agent POSTs, MCP writes and project creation are all rate limited. With PostgreSQL the limits are shared across instances.
+* Teammates' notes appear on agent pages inside a fenced block marked as data, with fence breaks neutralised, to guard against prompt injection.
+
+## Tech stack
+
+* **Next.js 15** (App Router, server actions), **React 19**, **TypeScript**
+* Plain CSS, no UI framework
+* **PostgreSQL** via `pg` when hosted, or a local JSON file for development
+* A small hand written JSON RPC handler for MCP
+* `pdfjs-dist`, `dompurify` and `yauzl` for file previews
+
+No AI SDKs, no auth library, and as few dependencies as possible.
+
+## Getting started
 
 ```bash
 npm install
@@ -16,52 +107,67 @@ npm run dev     # http://localhost:3000
 npm test
 ```
 
-Without `DATABASE_URL`, data is kept in the gitignored `data/db.json` file. Run `npm run seed` to reset the Campus Coffee demo and print its private agent links.
+Without `DATABASE_URL`, data is stored in the gitignored `data/db.json` file.
 
-On a joined board, use **Add file** to share source, HTML, PDFs, PowerPoint decks, or Word documents (up to 2 MB each). Attach a file to a task or leave it in the project library. The latest three uploads appear as board nodes and all uploads are in **Files**. Cards show the first page of a PDF, a static HTML preview, or an embedded Office cover when available. HTML source is also available in the file details. Agents can download project files from their private context.
+To load the demo project ("Campus Coffee App pitch", with four members, seven tasks and some decisions) and print each member's private agent link:
 
-For an existing PostgreSQL database, reapply `db/schema.sql` before running this version. The schema creates the file table while keeping existing project data.
+```bash
+npm run seed
+```
 
-To open your existing membership on another browser, use **Copy rejoin link** on a browser where you’re already signed in. Open it on the new browser, or paste it into **I’m already in** on the join page. The private link expires after 10 minutes and works once.
+`npm run dev` also listens on your local network, so phones and laptops on the same WiFi can join at `http://<your-ip>:3000`.
 
-## Deploy
+## Deploying on Railway
 
-The app and its database both run on Railway, in one project. The app talks to PostgreSQL over Railway's private network, so the database never needs to be reachable from the internet.
+The app and its database both run in one Railway project. The app reaches PostgreSQL over Railway's private network, so the database never needs to be public.
 
 1. Create a Railway project and add a PostgreSQL service.
-2. Add a service from this GitHub repo in the same project. Railway builds it with `npm run build` and starts it with `npm start`, which listens on the `PORT` Railway provides.
-3. In the app service's variables, set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}` (the private connection string). Never prefix it with `NEXT_PUBLIC_`.
-4. Under the app service's **Networking**, generate a Railway domain or add your own.
-5. Apply [db/schema.sql](db/schema.sql) once, and again whenever it changes (see "Working from your machine" below).
+2. Add a service from this GitHub repo in the same project. Railway builds with `npm run build` and starts with `npm start`.
+3. In the app service variables, set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}`. Never prefix it with `NEXT_PUBLIC_`.
+4. Under **Networking**, generate a Railway domain or add your own.
+5. Apply [`db/schema.sql`](db/schema.sql) once, and again whenever it changes.
 
-### Working from your machine
+To apply the schema or seed from your own machine, temporarily turn on Public Access for the PostgreSQL service and use its `DATABASE_PUBLIC_URL`:
 
-Your computer can't reach Railway's private network. To apply the schema, seed, or run locally against the hosted database, turn on [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) for the PostgreSQL service and use its `DATABASE_PUBLIC_URL`. You can turn it off again afterwards; the deployed app doesn't use it.
+```bash
+PGSSLMODE=require psql "$DATABASE_PUBLIC_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+IGLOO_ORIGIN=https://your-app.up.railway.app npm run seed
+```
 
-- **Schema:** with the public URL in your shell as `DATABASE_PUBLIC_URL`, run `PGSSLMODE=require psql "$DATABASE_PUBLIC_URL" -v ON_ERROR_STOP=1 -f db/schema.sql`.
-- **Local app against Railway:** set `DATABASE_URL` in the gitignored `.env.local` to the public URL with `?sslmode=require&uselibpqcompat=true` appended (use `&` if the URL already has query parameters). This requires encryption and accepts the template's generated certificate without verifying its identity. JSON data stays in the local file when you switch backends.
-- **Demo seed:** with that same `DATABASE_URL` set, run `IGLOO_ORIGIN=https://your-app.up.railway.app npm run seed`. This replaces only the `campus-coffee` project and rotates its private links.
+Don't use JSON mode on Railway, because the service disk resets on every deploy.
 
-Don't use JSON mode on Railway: the service's disk is reset on every deploy.
+## Project structure
 
-## Where the UI lives
+```text
+app/page.tsx              Create project form
+app/p/[slug]/ui.tsx       Join form and the whole group page
+app/actions.ts            Server actions the UI calls
+app/a/[token]/route.ts    Agent page (GET) and update blocks (POST)
+app/api/mcp/route.ts      MCP server
+app/api/files/[id]/       File downloads
+lib/core.ts               Types and pure rules: parsing, matching, fairness, digest, agent text
+lib/store.ts              Storage and the shared write rules, plus rate limits
+lib/postgres.ts           PostgreSQL backend
+scripts/seed.ts           Demo project
+db/schema.sql             Database schema
+docs/                     Full spec, build plan and design sample
+```
 
-| File | What |
-|---|---|
-| `app/globals.css` | All styles: the sample page's CSS, plain, no framework |
-| `app/page.tsx` | Create project form |
-| `app/p/[slug]/ui.tsx` | Join form and the whole group page: header, board, list, Tasks, Your AI, What's new, Decisions, quick actions (N or ⌘K), toasts |
-| `app/actions.ts` | Server actions the UI calls (all the rules live in `lib/store.ts`) |
+The UI, agent POST and MCP all call the same functions in `lib/store.ts`, so the rules are identical everywhere.
 
-## Status
+## Docs
 
-**Working:**
-- Create, join with a code, the board and list, claim, start, done, unclaim and hand to.
-- Add task, paste back with preview, decisions with a second person agreeing, and the digest.
-- Live updates every 3 seconds, and toasts.
-- Private agent links and update POSTs, MCP, and the demo seed.
-- PostgreSQL storage and shared rate limits when `DATABASE_URL` is configured.
+* [docs/SPEC.md](docs/SPEC.md): the full idea, rules, data model and API
+* [docs/PLAN.md](docs/PLAN.md): build order and checks
+* [docs/group-page-sample.html](docs/group-page-sample.html): the target design (open it in a browser)
 
-**Next:** Deploy the app and database on Railway, then check the public app and agent endpoints. See the plan for follow-up features.
+## Roadmap
 
-Rules: never call any AI or LLM API, and add files and dependencies only when they're needed.
+* Server sent events instead of polling
+* Agents suggesting decisions or tasks, with a human still agreeing
+* Per task history
+* Export to markdown
+
+## Credits
+
+Built by [@fawwazyeke](https://github.com/fawwazyeke).
