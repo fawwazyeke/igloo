@@ -103,6 +103,133 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 .mhead { display: flex; align-items: center; gap: 8px; }
 .you { border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; padding: 0 6px; margin-left: 6px; }
 .now { margin-top: 12px; background: var(--soft); border-radius: 12px; padding: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; font-size: 12px; }
+.board-icon { width: 13px; height: 13px; flex-shrink: 0; }
+.stage svg.board-icon { position: static; }
+.board .bar .lbl, .board .split span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Canvas theme. Scoped to Board and List views so the UI around them keeps its own colours.
+   Teal and lime are too light for text on pale surfaces: use them as fills with ink text on top. */
+.board, .list {
+  --ink: #08121F; --navy: #16314A; --teal: #25B5A9; --lime: #A0FF77; --mint: #F2FFF0;
+  --bg: #fff; --soft: #E4F6E8; --border: #C5E3D3; --dot: #C5E3D3;
+  --text: var(--ink); --muted: #4A6478; --accent: var(--teal); --accent-soft: var(--soft);
+  --ok: var(--lime); --warn: var(--teal);
+  --card-shadow: 0 1px 3px rgb(22 49 74 / .1), 0 6px 20px rgb(22 49 74 / .08);
+  --shadow-soft: none; --shadow-lift: none;
+  color: var(--text);
+}
+/* The summary card is the focal point, so it takes the palette's mint against the white canvas. */
+.board .brain, .list .stack > .card:first-child { --soft: #D3ECDB; background: var(--mint); }
+/* No outlines: white cards on a white canvas are separated by a soft shadow. */
+.board .node, .list .card, .list .task { border-color: transparent; box-shadow: var(--card-shadow); }
+.list .stack > .card:last-child { --muted: var(--navy); background: transparent; box-shadow: none; }
+.board .node, .list .card { border-radius: 8px; }
+.list .task { border-radius: 6px; margin-bottom: 8px; }
+.list .sec-t { display: flex; align-items: center; gap: 6px; }
+.list .sec-t .board-icon { width: 15px; height: 15px; }
+.list .owner .dot { background: var(--navy) !important; }
+.board .btn, .list .btn { background: var(--lime); color: var(--ink); border: 1px solid var(--ink); }
+.board .btn:hover, .list .btn:hover { filter: none; background: var(--teal); }
+.list .input:focus { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.board :focus-visible, .list :focus-visible { outline-color: var(--ink); }
+.board .now { border-radius: 6px; }
+.list .task.mine { background: var(--mint); }
+.board .eyebrow { color: var(--muted); }
+.board .brain .eyebrow { color: var(--navy); }
+.board .avatar { background: var(--navy); color: var(--mint); font-weight: 500; }
+.board .member.mine .avatar { background: var(--lime); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.board .you { background: var(--lime); color: var(--ink); }
+.board .mhead .dot { box-shadow: 0 0 0 1px var(--ink); }
+.board .chip.doing, .list .chip.doing { background: var(--lime); color: var(--ink); }
+.board .chip.done, .list .chip.done { background: var(--teal); color: var(--ink); }
+.board .mark, .list .mark { background: rgb(22 49 74 / .4); }
+/* Fairness sets member colours inline, hence !important. */
+.board .fair-row .fill, .list .fair-row .fill { background: var(--accent) !important; }
+
+/* Canvas type: Manrope for headings, Inter for body text, JetBrains Mono for short labels and numbers. */
+.board, .list { font-family: var(--font-board-sans), system-ui, sans-serif; }
+.board .title, .list .sec-t, .board .fair-head > span:first-child, .list .fair-head > span:first-child {
+  font-family: var(--font-board-heading), var(--font-board-sans), system-ui, sans-serif;
+}
+.board .eyebrow, .board .bar, .board .split, .board .mhead .small, .board .member > .small,
+.board .num, .list .num, .list .owner {
+  font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; font-weight: 400; line-height: 1.4;
+}
+.board .bar .lbl { width: 88px; }
+.board .title { font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+/* The brief shows in full; only very long ones scroll, so the board stays readable. */
+.board .brief { display: block; -webkit-line-clamp: unset; font-size: 13px; line-height: 1.5; color: var(--navy); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
+.board .now { font-size: 13px; line-height: 1.4; }
+.board .you { font-size: 12px; }
+.board .chip, .list .chip { font-size: 12px; }
+.list .sec-t { font-size: 15px; letter-spacing: -.01em; }
+
+/* Aurora backdrop. Each band moves by exactly one stripe, so the loop never jumps. */
+.aurora { position: relative; overflow: hidden; background: #fff; }
+.aurora-light { position: absolute; inset: 0; pointer-events: none; opacity: var(--aurora-opacity); }
+.aurora-fade .aurora-light { -webkit-mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); mask-image: radial-gradient(130% 110% at 0% 0%, #000 35%, transparent 90%); }
+.aurora-band {
+  position: absolute; top: -40%; left: -60%; width: 300%; height: 130%; rotate: -14deg; will-change: transform;
+  background-size: calc(100% / 3) 100%; background-repeat: repeat-x;
+  -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 85%); mask-image: linear-gradient(to bottom, #000 20%, transparent 85%);
+}
+.aurora-band-a {
+  background-image: linear-gradient(90deg, transparent, var(--aurora-color-1) 18%, transparent 36%, var(--aurora-color-2) 52%, transparent 68%, var(--aurora-color-3) 84%, transparent);
+  animation: aurora-a var(--aurora-speed) linear infinite;
+}
+.aurora-band-b {
+  background-image: linear-gradient(90deg, transparent 10%, var(--aurora-color-4) 30%, transparent 55%, var(--aurora-color-5) 75%, transparent 95%);
+  opacity: .7; animation: aurora-b calc(var(--aurora-speed) * 1.4) linear infinite;
+}
+@keyframes aurora-a { to { transform: translateX(calc(-100% / 3)); } }
+@keyframes aurora-b { from { transform: translateX(calc(-100% / 3)); } to { transform: none; } }
+.canvas-aurora { position: absolute; inset: 0; }
+.board.dots, .list.dots { background: none; }
+.list { position: relative; }
+
+/* Human + AI pair, last update, and the next-step bar. */
+.pair { display: inline-flex; align-items: center; flex-shrink: 0; }
+.ai-badge { display: grid; place-items: center; width: 36px; height: 36px; margin-left: -10px; border-radius: 50%; background: #fff; color: var(--ink); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--border); }
+.ai-badge .board-icon, .ai-badge img { display: block; width: 20px; height: 20px; }
+.last-update { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
+.last-update > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.last-update > span:last-child { flex-shrink: 0; color: var(--muted); font-family: var(--font-board-mono), ui-monospace, monospace; }
+.next-step { position: absolute; z-index: 2; top: 12px; left: 50%; translate: -50%; display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 24px); padding: 8px 8px 8px 14px; border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); }
+.next-label { flex-shrink: 0; color: var(--muted); font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; }
+.next-task { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.next-step .btn { flex-shrink: 0; }
+
+/* Zoom bar. Dragging the canvas only pans once someone has zoomed. */
+.board.zoomed { cursor: grab; touch-action: none; }
+.board.panning { cursor: grabbing; user-select: none; }
+.zoom-bar { position: absolute; z-index: 2; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #fff; box-shadow: var(--card-shadow); cursor: default; }
+.zoom-bar button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: none; color: var(--ink); }
+.zoom-bar button:hover:not(:disabled) { background: var(--soft); }
+.zoom-bar .board-icon { width: 16px; height: 16px; }
+.zoom-bar input { width: 96px; accent-color: var(--navy); cursor: pointer; }
+.zoom-pct { width: 42px; text-align: center; font-family: var(--font-board-mono), ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) { .zoom-bar { gap: 8px; } .zoom-bar button { width: 44px; height: 44px; } }
+@media (max-width: 520px) { .zoom-bar input { display: none; } }
+
+/* Canvas motion: a lift on hover, and a beam round the card of anyone with a task in progress. */
+.board .member, .list .task { --lift: 0 6px 16px rgb(22 49 74 / .14); transition: translate .18s ease-out, box-shadow .18s ease-out; }
+.board .member:hover, .list .task:hover { translate: 0 -2px; box-shadow: var(--lift); }
+@property --beam { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.board .member.working::after {
+  content: ""; position: absolute; inset: -2px; padding: 2px; border-radius: 10px; pointer-events: none;
+  background: conic-gradient(from var(--beam), transparent 0 72%, var(--teal) 88%, var(--lime) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: beam 3.2s linear infinite;
+}
+@keyframes beam { to { --beam: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .board .member, .list .task { transition: none; }
+  .board .member:hover, .list .task:hover { translate: none; }
+  .board .member.working::after { animation: none; }
+  .board .flow { animation: none; }
+  .aurora-band { animation: none; }
+}
 
 .chip { flex-shrink: 0; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 500; }
 .chip.todo { background: var(--soft); color: var(--muted); }

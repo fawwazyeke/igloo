@@ -3,6 +3,7 @@
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
+import { Aurora } from "@/components/ui/aurora";
 import {
   AI_TOOLS, PHASES, buildDigest, dueLabel, fairness, matchTask, parseUpdates, timeAgo,
   type Activity, type Decision, type MemberPublic, type Phase, type Result, type Status, type Task,
@@ -168,11 +169,12 @@ export function App(d: AppData) {
 
       <div className="body">
         <main>
-          {view === "board" ? <Board d={d} /> : (
+          <Aurora className="canvas-aurora" colors={["#25B5A9", "#A0FF77", "#25B5A9", "#A0FF77", "#25B5A9"]} />
+          {view === "board" ? <Board {...ctx} /> : (
             <div className="list dots">
               <div className="stack">
                 <div className="card"><Fairness members={d.members} tasks={d.tasks} /></div>
-                <div className="card"><TaskList {...ctx} /></div>
+                <div className="card"><TaskList {...ctx} plain /></div>
               </div>
             </div>
           )}
@@ -204,9 +206,65 @@ export function App(d: AppData) {
 
 // ---------- Board ----------
 // A fixed stage, scaled to fit. With 4 members it is the sample's layout (1100 x 790); more members widen the ring.
-function Board({ d }: { d: AppData }) {
+const BOARD_PHASE_LABEL: Record<Phase, string> = { research: "Research", build: "Build", present: "Present" };
+
+// Icons from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
+const BOARD_ICONS = {
+  research: <><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></>,
+  build: <><path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9" /><path d="m18 15 4-4" /><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172v-.344a2 2 0 0 0-.586-1.414l-1.657-1.657A6 6 0 0 0 12.516 3H9l1.243 1.243A6 6 0 0 1 12 8.485V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5" /></>,
+  present: <><path d="M2 3h20" /><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" /><path d="m7 21 5-5 5 5" /></>,
+  decisions: <><circle cx="12" cy="12" r="10" /><path d="m16 9-5.5 5.5L8 12" /></>,
+  due: <><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /></>,
+  minus: <path d="M5 12h14" />,
+  plus: <><path d="M5 12h14" /><path d="M12 5v14" /></>,
+  fit: <><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></>,
+  ai: <><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></>,
+};
+
+function BoardIcon({ name }: { name: keyof typeof BOARD_ICONS }) {
+  return <svg className="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{BOARD_ICONS[name]}</svg>;
+}
+
+const aiName = (tool: string) => (tool === "Other" ? "their AI" : tool);
+// Brand logos in public/ai, from @lobehub/icons (MIT). Marks belong to their owners.
+const AI_LOGOS = ["claude", "chatgpt", "gemini", "cursor", "copilot"];
+const aiLogo = (tool: string) => {
+  const key = tool.trim().toLowerCase();
+  return AI_LOGOS.includes(key) ? `/ai/${key}.svg` : null;
+};
+
+// The one thing this person should do now, in board order.
+function nextStep(d: AppData, a: Actions) {
+  const tasks = PHASES.flatMap((ph) => d.tasks.filter((t) => t.phase === ph));
+  const mine = tasks.filter((t) => t.owner_member_id === d.me.id);
+  const doing = mine.find((t) => t.status === "doing");
+  if (doing) return { label: "You're on", task: doing, action: "Mark done", run: () => a.status(doing, "done") };
+  const todo = mine.find((t) => t.status === "todo");
+  if (todo) return { label: "Your next", task: todo, action: "Start", run: () => a.status(todo, "doing") };
+  const open = tasks.find((t) => !t.owner_member_id && t.status === "todo");
+  if (open) return { label: "Up next", task: open, action: "Claim", run: () => a.claim(open) };
+  return null;
+}
+
+// A member's latest activity, without their own name at the start of the message.
+function lastUpdate(d: AppData, m: MemberPublic) {
+  const latest = d.activity.filter((x) => x.member_id === m.id).reduce<Activity | undefined>((best, x) => (!best || x.created_at > best.created_at ? x : best), undefined);
+  if (!latest) return null;
+  const text = latest.message.startsWith(`${m.name}: `) ? latest.message.slice(m.name.length + 2) : latest.message.startsWith(`${m.name} `) ? latest.message.slice(m.name.length + 1) : latest.message;
+  return { text: text.charAt(0).toUpperCase() + text.slice(1), at: latest.created_at };
+}
+
+const clampZoom = (v: number) => Math.min(2, Math.max(0.25, v));
+const ZOOM_BAR_SPACE = 60; // Height kept clear at the bottom so cards fit above the zoom bar.
+
+function Board({ d, a }: Ctx) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
+  const next = nextStep(d, a);
+  const reserve = next ? 64 : 0; // Height kept clear for the next-step bar.
   const n = d.members.length, grow = Math.max(1, n / 6);
-  const rx = 425 * grow, ry = 320 * grow, W = 2 * rx + 250, H = 2 * ry + 150, cx = W / 2, cy = H / 2;
+  const [brainH, setBrainH] = useState(0);
+  const rx = 425 * grow, ry = Math.max(320 * grow, brainH / 2 + 150), W =2 * rx + 250, H = 2 * ry + 150, cx = W / 2, cy = H / 2;
   const nodes = d.members.map((m, i) => {
     const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
     const mine = d.tasks.filter((t) => t.owner_member_id === m.id);
@@ -214,23 +272,75 @@ function Board({ d }: { d: AppData }) {
     return { m, x: cx + Math.cos(ang) * rx, y: cy + Math.sin(ang) * ry, task, mine, active: mine.some((t) => t.status === "doing") };
   });
   const box = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0);
+  const [frame, setFrame] = useState({ scale: 0, x: cx, y: cy });
+  // zoom is null while the board auto-fits; a number once someone takes control.
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const scale = zoom ?? frame.scale;
+  const zoomStep = (dir: number) => setZoom(clampZoom((Math.round(scale * 10) + dir) / 10));
+  const fitBoard = () => { setZoom(null); setPan({ x: 0, y: 0 }); };
+  const startPan = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (zoom === null || (e.target as HTMLElement).closest(".node, .next-step, .zoom-bar")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    setDragging(true);
+  };
+  const movePan = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    const { clientWidth: w, clientHeight: h } = e.currentTarget;
+    setPan({ x: Math.max(-w, Math.min(w, e.clientX - drag.current.x)), y: Math.max(-h, Math.min(h, e.clientY - drag.current.y)) });
+  };
+  const endPan = () => { drag.current = null; setDragging(false); };
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => setScale(Math.min(el.clientWidth / (W + 40), el.clientHeight / (H + 40), 1));
+    const cards = Array.from(el.querySelectorAll<HTMLElement>(".node"));
+    // Frame the cards that exist. offset* ignores the stage's scale, and each card is centred on its left/top.
+    const fit = () => {
+      if (!cards.length) return;
+      setBrainH(cards.find((c) => c.classList.contains("brain"))?.offsetHeight ?? 0);
+      const left =Math.min(...cards.map((c) => c.offsetLeft - c.offsetWidth / 2));
+      const right = Math.max(...cards.map((c) => c.offsetLeft + c.offsetWidth / 2));
+      const top = Math.min(...cards.map((c) => c.offsetTop - c.offsetHeight / 2));
+      const bottom = Math.max(...cards.map((c) => c.offsetTop + c.offsetHeight / 2));
+      const scale = Math.min(el.clientWidth / (right - left + 64), (el.clientHeight - reserve - ZOOM_BAR_SPACE) / (bottom - top + 24), 1);
+      const x = (left + right) / 2, y = (top + bottom) / 2;
+      setFrame((f) => (f.scale === scale && f.x === x && f.y === y ? f : { scale, x, y }));
+    };
     const ro = new ResizeObserver(fit);
     ro.observe(el);
+    cards.forEach((c) => ro.observe(c));
     fit();
     return () => ro.disconnect();
-  }, [W, H]);
+  }, [W, H, n, reserve]);
+  // Scrolling over the zoom bar zooms. So does Ctrl/Cmd + scroll anywhere, which is also what a trackpad pinch sends.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest(".zoom-bar")) return;
+      e.preventDefault();
+      setZoom((z) => clampZoom((z ?? frame.scale) * Math.exp(-e.deltaY * 0.002)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [frame.scale]);
   const locked = d.decisions.filter((x) => x.approved_by).length;
 
   return (
-    <div ref={box} className="board dots">
-      <div className="stage" style={{ width: W, height: H, transform: `scale(${scale}) translate(${-cx}px, ${-cy}px)`, visibility: scale ? "visible" : "hidden" }}>
+    <div ref={box} className={`board dots ${zoom !== null ? "zoomed" : ""} ${dragging ? "panning" : ""}`} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>
+      {next && (
+        <div className="next-step">
+          <span className="next-label">{next.label}</span>
+          <span className="next-task" title={next.task.title}>{next.task.title}</span>
+          <button className="btn sm" onClick={next.run}>{next.action}</button>
+        </div>
+      )}
+      <div className="stage" style={{ top: `calc(50% + ${(reserve - ZOOM_BAR_SPACE) / 2}px)`, width: W, height: H, transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale}) translate(${-frame.x}px, ${-frame.y}px)`, visibility: frame.scale ? "visible" : "hidden" }}>
         <svg width={W} height={H} aria-hidden>
-          {nodes.map((p) => <line key={p.m.id} x1={cx} y1={cy} x2={p.x} y2={p.y} strokeWidth={1.5} stroke={p.active ? p.m.color : "#ebe4d8"} className={p.active ? "flow" : undefined} />)}
+          {nodes.map((p) => <line key={p.m.id} x1={cx} y1={cy} x2={p.x} y2={p.y} strokeWidth={1.5} stroke={p.active ? "var(--accent)" : "var(--border)"} className={p.active ? "flow" : undefined} />)}
         </svg>
         <div className="node brain" style={{ left: cx, top: cy }}>
           <div className="eyebrow">Team project</div>
@@ -241,34 +351,47 @@ function Board({ d }: { d: AppData }) {
               const ts = d.tasks.filter((t) => t.phase === ph), dn = ts.filter((t) => t.status === "done").length;
               return (
                 <div key={ph} className="bar">
-                  <span className="lbl">{PHASE_LABEL[ph]}</span>
+                  <span className="lbl"><BoardIcon name={ph} />{BOARD_PHASE_LABEL[ph]}</span>
                   <div className="track"><div className="fill" style={{ width: `${ts.length ? (dn / ts.length) * 100 : 0}%`, background: "var(--accent)" }} /></div>
                   <span className="num">{dn}/{ts.length}</span>
                 </div>
               );
             })}
           </div>
-          <div className="split"><span>🤝 {locked} agreed decision{locked === 1 ? "" : "s"}</span><span>📅 {dueLabel(d.project.due_date)}</span></div>
+          <div className="split"><span><BoardIcon name="decisions" />{locked} agreed decision{locked === 1 ? "" : "s"}</span><span><BoardIcon name="due" />{dueLabel(d.project.due_date)}</span></div>
           <div className="divider"><Fairness members={d.members} tasks={d.tasks} /></div>
         </div>
-        {nodes.map(({ m, x, y, task, mine }) => {
+        {nodes.map(({ m, x, y, task, mine, active }) => {
           const online = Date.now() - Date.parse(m.last_seen_at) < 5 * 60_000;
           const dn = mine.filter((t) => t.status === "done").length;
+          const update = lastUpdate(d, m);
+          const logo = aiLogo(m.ai_tool);
           return (
-            <div key={m.id} className={`node member ${m.id === d.me.id ? "mine" : ""}`} style={{ left: x, top: y }}>
+            <div key={m.id} className={`node member ${m.id === d.me.id ? "mine" : ""} ${active ? "working" : ""}`} style={{ left: x, top: y }}>
               <div className="mhead">
-                <span className="avatar" style={{ background: m.color }}>{m.name[0]?.toUpperCase()}</span>
+                <span className="pair" title={`${m.name} with ${aiName(m.ai_tool)}`}>
+                  <span className="avatar">{m.name[0]?.toUpperCase()}</span>
+                  <span className="ai-badge">{logo ? <img src={logo} alt={m.ai_tool} /> : <BoardIcon name="ai" />}</span>
+                </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 500 }}>{m.name}{m.id === d.me.id && <span className="you">you</span>}</div>
-                  <div className="small">uses {m.ai_tool}</div>
+                  {!logo && <div className="small">with {aiName(m.ai_tool)}</div>}
                 </div>
                 <Dot color={online ? "var(--ok)" : "var(--border)"} title={online ? "Active now" : `Seen ${timeAgo(m.last_seen_at)}`} />
               </div>
               <div className="now">{task ? <><span>{task.title}</span><Chip status={task.status} /></> : <span className="small">Not working on anything yet</span>}</div>
               <div className="small" style={{ marginTop: 8 }}>{mine.length ? `${dn} of ${mine.length} task${mine.length === 1 ? "" : "s"} done` : "No tasks yet"}</div>
+              {update && <div className="last-update" title={update.text}><span>{update.text}</span><span>{timeAgo(update.at)}</span></div>}
             </div>
           );
         })}
+      </div>
+      <div className="zoom-bar" role="group" aria-label="Board zoom">
+        <button type="button" aria-label="Zoom out" title="Zoom out" disabled={scale <= 0.25} onClick={() => zoomStep(-1)}><BoardIcon name="minus" /></button>
+        <input type="range" min={25} max={200} step={5} value={Math.round(scale * 100)} aria-label="Zoom level" aria-valuetext={`${Math.round(scale * 100)} percent`} onChange={(e) => setZoom(Number(e.target.value) / 100)} />
+        <button type="button" aria-label="Zoom in" title="Zoom in" disabled={scale >= 2} onClick={() => zoomStep(1)}><BoardIcon name="plus" /></button>
+        <span className="zoom-pct" aria-live="polite">{Math.round(scale * 100)}%</span>
+        <button type="button" aria-label="Fit board to window" title="Fit to window" onClick={fitBoard}><BoardIcon name="fit" /></button>
       </div>
     </div>
   );
@@ -293,7 +416,7 @@ function Fairness({ members, tasks }: { members: MemberPublic[]; tasks: Task[] }
 }
 
 // ---------- Tasks ----------
-function TaskList({ d, byId, a }: Ctx) {
+function TaskList({ d, byId, a, plain }: Ctx & { plain?: boolean }) {
   const [title, setTitle] = useState("");
   const [phase, setPhase] = useState<Phase>("build");
   return (
@@ -302,7 +425,7 @@ function TaskList({ d, byId, a }: Ctx) {
         const ts = d.tasks.filter((t) => t.phase === ph);
         return (
           <div key={ph} className="sec">
-            <div className="sec-t">{PHASE_LABEL[ph]} · {ts.filter((t) => t.status === "done").length} of {ts.length} done</div>
+            <div className="sec-t">{plain ? <><BoardIcon name={ph} />{BOARD_PHASE_LABEL[ph]}</> : PHASE_LABEL[ph]} · {ts.filter((t) => t.status === "done").length} of {ts.length} done</div>
             {!ts.length && <div className="small">Nothing here yet</div>}
             {ts.map((t) => {
               const o = t.owner_member_id ? byId.get(t.owner_member_id) : undefined;
@@ -330,7 +453,7 @@ function TaskList({ d, byId, a }: Ctx) {
       <form className="row" onSubmit={(e) => { e.preventDefault(); if (title.trim()) { a.addTask(title, phase); setTitle(""); } }}>
         <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="Add a task…" aria-label="New task" />
         <select className="hand" style={{ borderRadius: 12 }} value={phase} onChange={(e) => setPhase(e.target.value as Phase)} aria-label="Phase">
-          {PHASES.map((p) => <option key={p} value={p}>{PHASE_LABEL[p]}</option>)}
+          {PHASES.map((p) => <option key={p} value={p}>{(plain ? BOARD_PHASE_LABEL : PHASE_LABEL)[p]}</option>)}
         </select>
         <button className="ghost sm">Add</button>
       </form>
