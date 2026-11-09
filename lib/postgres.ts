@@ -18,7 +18,7 @@ export function postgres() {
       connectionTimeoutMillis: 5000,
       allowExitOnIdle: true,
     });
-    pool.on("error", (err) => console.error("Idle PostgreSQL connection failed", err.code));
+    pool.on("error", (err) => console.error("Idle PostgreSQL connection failed", err.name));
   }
   return pool;
 }
@@ -145,4 +145,23 @@ export async function transaction<T>(run: (client: PoolClient) => Promise<T>): P
   } finally {
     client.release(discard);
   }
+}
+
+export async function recordRateHit(key: string, max: number, windowMs: number) {
+  // All configured windows are at most one hour. Sweep expired keys occasionally.
+  if (Math.random() < 0.01) {
+    await postgres().query("DELETE FROM rate_hits WHERE at <= statement_timestamp() - interval '1 hour'");
+  }
+  return transaction(async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock(2, hashtext($1))", [key]);
+    const result = await client.query(`
+      INSERT INTO rate_hits (key, at)
+      SELECT $1, statement_timestamp()
+      WHERE (
+        SELECT count(*) FROM rate_hits
+        WHERE key = $1 AND at > statement_timestamp() - $3 * interval '1 millisecond'
+      ) < $2
+    `, [key, max, windowMs]);
+    return result.rowCount === 1;
+  });
 }

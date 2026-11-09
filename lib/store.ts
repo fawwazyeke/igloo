@@ -1,9 +1,9 @@
 // Storage and every write rule. Server only. The UI (server actions), agent POST and MCP all call these.
 // PostgreSQL serializes writes per project. Local development uses a synchronous JSON write.
-import { randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { empty, loadActivityId, loadProject, loadSession, projectTransaction, type DB, type Selector } from "./postgres";
+import { empty, loadActivityId, loadProject, loadSession, projectTransaction, recordRateHit, type DB, type Selector } from "./postgres";
 import {
   COLORS, LIMIT, PHASES, clean, cleanText, isCode, isDate, isToken, matchTask, publicMember,
   type Activity, type AgentContext, type Decision, type Member, type Note, type Phase,
@@ -43,9 +43,13 @@ const live = (db: DB, me: Member) => {
 };
 const gone: Result = { error: "You are no longer in this group" };
 
-// ---------- Rate limits (in memory for now; shared table in milestone C) ----------
+// ---------- Rate limits ----------
 const hits = new Map<string, number[]>();
 export async function rateLimit(key: string, max: number, windowMs: number) {
+  if (process.env.DATABASE_URL) {
+    const digest = createHash("sha256").update(key).digest("hex");
+    return recordRateHit(digest, max, windowMs);
+  }
   const t = Date.now();
   const list = (hits.get(key) ?? []).filter((x) => t - x < windowMs);
   if (list.length >= max) { hits.set(key, list); return false; }

@@ -67,4 +67,11 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE INDEX IF NOT EXISTS activity_project_id ON activity (project_id, id DESC);
 
+CREATE TABLE IF NOT EXISTS rate_hits (
+  key text NOT NULL,
+  at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rate_hits_key_at ON rate_hits (key, at);
+CREATE INDEX IF NOT EXISTS rate_hits_at ON rate_hits (at);
+
 COMMIT;
