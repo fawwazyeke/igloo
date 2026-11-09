@@ -16,7 +16,17 @@ npm run dev     # http://localhost:3000
 npm test
 ```
 
-Data is kept in `data/db.json`, which is gitignored and created on first use.
+Without `DATABASE_URL`, data is kept in the gitignored `data/db.json` file. Run `npm run seed` to reset the Campus Coffee demo and print its private agent links.
+
+## Deploy
+
+1. Add a PostgreSQL service in Railway and enable [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) so Vercel can connect.
+2. Apply [db/schema.sql](db/schema.sql). With the original Railway public URL stored in your shell as `DATABASE_PUBLIC_URL`, run `PGSSLMODE=require psql "$DATABASE_PUBLIC_URL" -v ON_ERROR_STOP=1 -f db/schema.sql`.
+3. Import the repo in Vercel and set its server-only `DATABASE_URL` to the public connection string before deploying. For the standard Railway template, append `?sslmode=require&uselibpqcompat=true` (use `&` if the URL already has query parameters). This requires encryption and accepts the template's generated certificate without verifying its identity.
+
+To run locally against Railway, set the same app connection string in the gitignored `.env.local`. JSON data stays in the local file when you switch backends.
+
+To seed the hosted demo, run `IGLOO_ORIGIN=https://your-app.example npm run seed` with the hosted database configured. This replaces only the `campus-coffee` project and rotates its private links.
 
 ## Where the UI lives
 
@@ -33,11 +43,9 @@ Data is kept in `data/db.json`, which is gitignored and created on first use.
 - Create, join with a code, the board and list, claim, start, done, unclaim and hand to.
 - Add task, paste back with preview, decisions with a second person agreeing, and the digest.
 - Live updates every 3 seconds, and toasts.
+- Private agent links and update POSTs, MCP, and the demo seed.
+- PostgreSQL storage and shared rate limits when `DATABASE_URL` is configured.
 
-**Not built yet:**
-- The agent link `/a/<token>`. This means **Preview** and **Copy as text** in "Your AI" don't work yet.
-- MCP (`/api/mcp`).
-- The demo seed.
-- Postgres and deploy. See the plan.
+**Next:** Provision Railway and deploy to Vercel, then check the public app and agent endpoints. See the plan for follow-up features.
 
 Rules: never call any AI or LLM API, and add files and dependencies only when they're needed.

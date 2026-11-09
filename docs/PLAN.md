@@ -7,7 +7,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
 ## How we build
 
 - **Build only what is needed.** Edit an existing file before adding one. Target: the 12 source files listed below, and no more without a reason.
-- **Few dependencies.** Runtime: `next`, `react` and `react-dom` only. Dev: `typescript@5` (not 7), the React and Node types, and `tsx` for the seed and tests. The only planned addition is `pg`, when Postgres arrives.
+- **Few dependencies.** Runtime: `next`, `react`, `react-dom` and `pg`. Dev: `typescript@5`, type definitions, and `tsx` for the seed and tests.
   - No Tailwind: the CSS is the sample page's plain CSS.
   - No React Flow: the board is the sample's scaled stage, drawn with plain HTML and SVG.
   - No MCP SDK or zod: `/api/mcp` is a small JSON-RPC handler (initialize, tools/list, tools/call).
@@ -18,7 +18,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
   - Validate all input and rate limit it.
   - Never send one member's tokens to another member.
 - `lib/core.ts` is pure, because the client imports it. Every write rule lives in `lib/store.ts`, and the UI, agent POST and MCP all call the same functions.
-- **The store is async from day one.** It has a JSON file backend now, and a Postgres backend later behind the same functions, so no caller changes.
+- **The store is async.** The JSON and Postgres backends use the same public functions and write rules.
 - `app/actions.ts` exports only real endpoints (every export of a `"use server"` file is public).
 - Both `IGLOO UPDATE` and `GROUPMIND UPDATE` headers are accepted.
 - After every step, run `npx tsc --noEmit`, `npm test` and the browser check below.
@@ -54,17 +54,14 @@ This repo is built from scratch. Each step below has a check, and each step is i
 | A6 | Seed, README, and the full check below | Everything in "Browser check" passes |
 | A7 | Private GitHub repo `igloo`, `main` pushed | GitHub shows every commit |
 
-## Milestone B. Postgres (Supabase)
+## Milestone B. Postgres (Railway)
 
 1. **You:**
-   - Create the Supabase project and run the schema in SPEC/HANDOVER P0-1.
-   - Put the pooled connection string in `.env.local` as `DATABASE_URL`. Never prefix it with `NEXT_PUBLIC_`.
-2. `npm install pg @types/pg`.
-3. In `lib/store.ts`, one `if (process.env.DATABASE_URL)` picks the backend. Each exported function gets a Postgres version:
-   - **Claim** is a single `UPDATE tasks SET owner_member_id=$1, claimed_at=now() WHERE id=$2 AND project_id=$3 AND owner_member_id IS NULL RETURNING id`. If no row comes back, read the owner's name and return "<name> already has this".
-   - **Status** is `UPDATE ... WHERE id=$1 AND owner_member_id=$me`.
-   - **Join, applyUpdates and approve** run in `BEGIN ... COMMIT`. The unique `(project_id, lower(name))` index refuses duplicate names.
-   - **Every change** writes an `activity` row.
+   - Create a Railway project, add a PostgreSQL service, and apply [db/schema.sql](../db/schema.sql).
+   - Railway databases are private by default. Since the app is deployed on Vercel, enable **Public Access** on the PostgreSQL service to create a TCP proxy and `DATABASE_PUBLIC_URL`.
+   - Put the value of Railway's `DATABASE_PUBLIC_URL` in `.env.local` as `DATABASE_URL`. Never prefix either variable with `NEXT_PUBLIC_`, and never expose the connection string to client code.
+2. `lib/store.ts` selects Postgres when `DATABASE_URL` is present. Postgres locks the project row before the shared rules read and change it. Claims of unowned tasks also require `owner_member_id IS NULL` in the update. Changes and activity rows commit together.
+3. The unique `(project_id, lower(name))` index backs up the duplicate-name check.
 - **Check:**
   - All of the browser check passes on Postgres.
   - 10 concurrent claims give exactly one owner.
@@ -72,7 +69,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 ## Milestone C. Shared rate limits
 
-- Add a `rate_hits(key, at)` table. `rateLimit` (already async, already in `lib/store.ts`) counts the window and inserts in one statement.
+- Postgres rate limits use `rate_hits(key, at)`. A transaction locks each hashed key before counting and inserting a hit. JSON mode uses process-local counters.
 - The limits don't change:
 
   | Action | Limit |
@@ -87,7 +84,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 ## Milestone D. Deploy on Vercel
 
-1. **You:** import the repo in Vercel and set `DATABASE_URL`.
+1. **You:** import the repo in Vercel and follow the [README deployment steps](../README.md#deploy) to set `DATABASE_URL` to Railway's public endpoint with TLS.
 2. Seed the demo project once.
 3. **Check:**
    - A phone on mobile data can create, join and use the board.
@@ -137,5 +134,5 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 ## Things only you can do
 
-- Create the Supabase project and paste the connection string into `.env.local` and Vercel.
+- Create the Railway project and PostgreSQL service, enable database Public Access, and paste the `DATABASE_PUBLIC_URL` value into `.env.local` and Vercel under the name `DATABASE_URL`.
 - Connect the GitHub repo in Vercel.

@@ -164,11 +164,12 @@ curl -s -X POST http://<host>/a/<token> --data-binary $'GROUPMIND UPDATE\ntask: 
   | 422 | Nothing saved |
   | 400 | No blocks found |
   | 404 | Bad or unknown token |
+  | 413 | Body too large |
   | 429 | Rate limited |
 
 ### 5.4 MCP server (`/api/mcp`)
 
-- Uses the official `@modelcontextprotocol/sdk` with Streamable HTTP. It's stateless (a fresh server per request) and returns JSON responses.
+- Uses a stateless JSON-RPC handler over Streamable HTTP with JSON responses.
 - Auth: `Authorization: Bearer <agent token>` or `?token=<agent token>`. A missing or unknown token gets 401 with a JSON-RPC error.
 - Every tool call re-checks the token.
 
@@ -203,7 +204,7 @@ The items it can't do are deliberately human-only, in the web app.
 
 ## 6. Data model
 
-Storage is currently a single local JSON file (`data/db.json`, gitignored; the path can be changed with `GROUPMIND_DATA_FILE`).
+Storage uses PostgreSQL when `DATABASE_URL` is configured. Local development defaults to `data/db.json`, a gitignored file whose path can be changed with `IGLOO_DATA_FILE`.
 
 ```ts
 type Phase  = "research" | "build" | "present";
@@ -232,10 +233,7 @@ Member colors cycle through `#f59e0b #3b82f6 #10b981 #ec4899 #8b5cf6 #06b6d4 #ef
 ## 7. Business rules (exact behaviour)
 
 ### Writes are atomic
-Every change is one synchronous read, modify, write of the data file. It's written to a tmp file, then renamed into place. Within one Node process nothing can run between the check and the write, so claims are atomic. This was tested with 10 concurrent claim requests: exactly one won.
-
-When moving to Postgres, keep that guarantee with a conditional update:
-`UPDATE tasks SET owner_member_id = $me WHERE id = $id AND owner_member_id IS NULL`.
+The JSON store reads, modifies and atomically replaces the file within one Node process. PostgreSQL serializes changes per project with a row lock, uses a conditional update for new claims, and commits activity entries alongside the change.
 
 ### Tasks
 - **Claim.** Fails if someone else owns the task ("X already has this"). Claiming your own task returns "Already yours". A claim is logged.
@@ -306,7 +304,7 @@ Open the group: http://<host>/p/<slug>
   | Paste or POST body | 20,000 characters |
 
   Formats are checked too: due date `YYYY-MM-DD`, join code `^\d{6}$`, token `^[0-9a-f]{64}$`, and status from a fixed list.
-- **Rate limits** (in memory, per server process; fine for a demo, would need a shared store such as Redis in production):
+- **Rate limits** (shared across instances in PostgreSQL mode, in memory for local JSON mode):
 
   | Action | Limit |
   |---|---|
@@ -431,23 +429,21 @@ The seed creates four members (Aisha/Claude, Minjun/ChatGPT, Daniel/Gemini, Sofi
 - Create and join.
 - Atomic claims: concurrent-claim test passed.
 - Agent page, paste back with preview, and agent POST via curl.
-- MCP: all 5 tools tested with the official client; no token gets 401.
+- MCP: all 5 tools tested over HTTP. A missing token gets 401.
 - Canvas and list views, fairness, live feed and toasts, decisions with a second-person agree, the digest, the command palette, and the warm redesign.
 - Token isolation, checked in a production build.
 
 **Known limits:**
-- **Storage:** the local JSON file doesn't persist on serverless hosts such as Vercel, and the atomic guarantee only holds within one server process.
-- **Rate limits** are in memory, so they reset on restart and aren't shared between instances.
+- **Storage:** configure PostgreSQL on serverless hosts such as Vercel. JSON mode is for one local process.
 - **Live updates** use polling (3 seconds), not websockets.
 - **Web chat AIs** can't reach a local address, so they use copy and paste until the app is deployed publicly.
 - **Sessions are per device.** A new device means joining again under a different name, because names are unique.
 
 **Possible next steps:**
-1. Swap `lib/store.ts` for Postgres (for example Supabase) using the conditional-update claim, then deploy to Vercel. Then any AI that can browse, phone apps included, can open agent links directly.
-2. Move the rate limiter to a shared store.
-3. Add a "rejoin on another device" link (a one-time code) so members aren't tied to one device.
-4. Optionally let agents suggest decisions or add tasks, each still needing a human to agree.
-5. Push updates with server-sent events instead of polling.
+1. Provision Railway Postgres and deploy the app to Vercel using the [deployment steps](../README.md#deploy) so agents can reach the public endpoints.
+2. Add a "rejoin on another device" link (a one-time code) so members aren't tied to one device.
+3. Optionally let agents suggest decisions or add tasks, each still needing a human to agree.
+4. Push updates with server-sent events instead of polling.
 
 ---
 
