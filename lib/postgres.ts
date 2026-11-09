@@ -2,10 +2,11 @@ import { Pool, type PoolClient } from "pg";
 import type { Activity, Decision, Member, Note, Project, ProjectFile, Task } from "./core";
 
 export type StoredFile = ProjectFile & { data?: string };
+export type StoredMember = Member & { device_code_hash?: string | null; device_expires_at?: string | null };
 const fileColumns = "id, project_id, task_id, member_id, name, kind, size, created_at";
 
 export type DB = {
-  projects: Project[]; members: Member[]; tasks: Task[];
+  projects: Project[]; members: StoredMember[]; tasks: Task[];
   decisions: Decision[]; notes: Note[]; activity: Activity[]; project_files: StoredFile[]; seq: number;
 };
 export const empty = (): DB => ({ projects: [], members: [], tasks: [], decisions: [], notes: [], activity: [], project_files: [], seq: 0 });
@@ -34,7 +35,7 @@ function projectFilter(by: Selector) {
 
 const tables = {
   projects: "id, slug, name, course_or_context, due_date, brief, join_code, created_at",
-  members: "id, project_id, name, ai_tool, color, last_seen_at, agent_token, session_token",
+  members: "id, project_id, name, ai_tool, color, last_seen_at, agent_token, session_token, device_code_hash, device_expires_at",
   tasks: "id, project_id, title, phase, position, due_date, owner_member_id, status, claimed_at, done_at",
   decisions: "id, project_id, text, created_by, approved_by, created_at",
   notes: "id, project_id, text, source_member_id, created_at",

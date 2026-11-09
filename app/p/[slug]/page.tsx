@@ -2,18 +2,19 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getBoard, memberBySession } from "@/lib/store";
 import { publicMember } from "@/lib/core";
-import { App, JoinForm } from "./ui";
+import { App, DeviceForm, JoinForm } from "./ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function GroupPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ code?: string }> }) {
+export default async function GroupPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ code?: string; rejoin?: string }> }) {
   const { slug } = await params;
-  const { code } = await searchParams;
+  const { code, rejoin } = await searchParams;
   const board = await getBoard(slug);
   if (!board) notFound();
   const me = await memberBySession(slug, (await cookies()).get(`gm_${slug}`)?.value);
   const { project } = board;
 
+  if (rejoin === "1") return <DeviceForm slug={slug} name={project.name} />;
   if (!me) return <JoinForm slug={slug} name={project.name} context={project.course_or_context} code={/^\d{6}$/.test(code ?? "") ? code : undefined} />;
 
   // The viewer gets their own agent token and nobody else's; the session token never leaves the server.

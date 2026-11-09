@@ -127,4 +127,14 @@ test("store: second claim fails, only the owner changes status, decisions need a
   const ctx = (await s.agentContext(ann.agent_token))!;
   assert.equal(ctx.notes[0].text, "Deck: shipped");
   assert.ok(!JSON.stringify((await s.getBoard(slug))!.members).includes(ann.agent_token));
+
+  const first = (await s.createDeviceCode(ann)).code!;
+  const second = (await s.createDeviceCode(ann)).code!;
+  assert.notEqual(second, ann.agent_token);
+  assert.notEqual(second, ann.session_token);
+  assert.equal(await s.redeemDeviceCode(slug, first), null);
+  assert.equal(await s.redeemDeviceCode("another-project", second), null);
+  const attempts = await Promise.all([s.redeemDeviceCode(slug, second), s.redeemDeviceCode(slug, second)]);
+  assert.equal(attempts.filter(Boolean).length, 1);
+  assert.equal((await s.memberBySession(slug, attempts.find(Boolean) ?? undefined))?.id, ann.id);
 });

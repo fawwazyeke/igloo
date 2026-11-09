@@ -22,6 +22,8 @@ On a joined board, use **Add file** to share source, HTML, PDFs, PowerPoint deck
 
 For an existing PostgreSQL database, reapply `db/schema.sql` before running this version. The schema creates the file table while keeping existing project data.
 
+To open your existing membership on another browser, use **Copy rejoin link** on a browser where you’re already signed in. Open it on the new browser, or paste it into **I’m already in** on the join page. The private link expires after 10 minutes and works once.
+
 ## Deploy
 
 1. Add a PostgreSQL service in Railway and enable [Public Access](https://docs.railway.com/databases/postgresql#connecting-externally) so Vercel can connect.

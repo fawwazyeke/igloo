@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import * as A from "@/app/actions";
 import { FileThumbnail } from "./file-thumbnail";
 import {
-  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, PHASES, buildDigest, dueLabel, fairness, fileUrl, matchTask, parseUpdates, timeAgo,
+  AI_TOOLS, FILE_ACCEPT, FILE_LABEL, FILE_LIMIT, PHASES, buildDigest, dueLabel, fairness, fileUrl, isToken, matchTask, parseUpdates, timeAgo,
   type Activity, type Decision, type MemberPublic, type Phase, type ProjectFile, type Result, type Status, type Task,
 } from "@/lib/core";
 
@@ -27,6 +27,8 @@ function copy(text: string) {
 export function JoinForm({ slug, name, context, code }: { slug: string; name: string; context: string; code?: string }) {
   const [state, action, pending] = useActionState(A.joinProject, undefined);
   const [tool, setTool] = useState("Claude");
+  const [alreadyIn, setAlreadyIn] = useState(false);
+  if (alreadyIn) return <DeviceForm slug={slug} name={name} back={() => setAlreadyIn(false)} />;
   return (
     <main className="page dots">
       <div className="page-inner narrow">
@@ -56,9 +58,51 @@ export function JoinForm({ slug, name, context, code }: { slug: string; name: st
           {state?.error && <p className="err">{state.error}</p>}
           <button className="btn big" disabled={pending}>{pending ? "Joining…" : "Join project"}</button>
         </form>
+        <button className="ghost big rejoin-button" type="button" onClick={() => setAlreadyIn(true)}>I’m already in</button>
       </div>
     </main>
   );
+}
+
+export function DeviceForm({ slug, name, back }: { slug: string; name: string; back?: () => void }) {
+  const [state, action, pending] = useActionState(A.rejoinDevice, undefined);
+  const [code, setCode] = useState<string | null>(null);
+  const [pastedLink, setPastedLink] = useState("");
+  useEffect(() => {
+    const value = new URLSearchParams(location.hash.slice(1)).get("device");
+    if (isToken(value)) {
+      setCode(value);
+      history.replaceState(history.state, "", location.pathname + location.search);
+    }
+  }, []);
+  let pastedCode: string | null = null;
+  if (back && pastedLink.trim()) {
+    try {
+      const link = new URL(pastedLink.trim());
+      const value = new URLSearchParams(link.hash.slice(1)).get("device");
+      if (link.pathname === `/p/${slug}` && link.searchParams.get("rejoin") === "1" && isToken(value)) pastedCode = value;
+    } catch { /* An incomplete or invalid paste cannot be submitted. */ }
+  }
+  const device = back ? pastedCode : code;
+  return <main className="page dots">
+    <div className="page-inner narrow">
+      <div className="ctx">Igloo · Existing membership</div>
+      <h1>Rejoin {name}</h1>
+      <p className="lead">Use the same name, tasks, and private agent link on this browser.</p>
+      <form className="card form" action={action}>
+        <input type="hidden" name="slug" value={slug} />
+        <input type="hidden" name="device" value={device ?? ""} />
+        {back && <label className="label">Private rejoin link
+          <input className="input" type="text" value={pastedLink} onChange={(event) => setPastedLink(event.target.value)} maxLength={512} autoComplete="off" spellCheck={false} />
+          <span className="small">On the browser where you’re already in this project, click Copy rejoin link.</span>
+        </label>}
+        {state?.error && <p className="err" role="alert">{state.error}</p>}
+        <button className="btn big" disabled={pending || !device}>{pending ? "Rejoining…" : "Continue with my membership"}</button>
+        {!back && !code && <p className="small">If you don’t have a code here, reopen the original rejoin link.</p>}
+      </form>
+      {back && <button className="ghost big rejoin-button" type="button" onClick={back}>Back to join</button>}
+    </div>
+  </main>;
 }
 
 // ======================= App =======================
@@ -100,6 +144,8 @@ export function App(d: AppData) {
   const [view, setView] = useState<"board" | "list">("board");
   const [tab, setTab] = useState<Tab>("tasks");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [copyingDevice, setCopyingDevice] = useState(false);
+  const [deviceLink, setDeviceLink] = useState<string | null>(null);
   const [palette, setPalette] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const byId = useMemo(() => new Map(d.members.map((m) => [m.id, m])), [d.members]);
@@ -142,6 +188,20 @@ export function App(d: AppData) {
 
   const openFile = (id: string) => { setSelectedFile(id); setTab("files"); };
   const openFiles = () => { setSelectedFile(null); setTab("files"); };
+  const copyRejoin = async () => {
+    setCopyingDevice(true);
+    try {
+      const result = await A.copyDeviceLink(d.slug);
+      if (!("path" in result) || !result.path) { toast(result.error ?? "Could not create a rejoin link", "bad"); return; }
+      const link = new URL(result.path, result.productionHost ? `https://${result.productionHost}` : location.origin).href;
+      try {
+        await copy(link);
+        toast("Rejoin link copied. It works once for 10 minutes.", "ok");
+      } catch { setDeviceLink(link); }
+    } catch {
+      toast("Could not create a rejoin link", "bad");
+    } finally { setCopyingDevice(false); }
+  };
   const ctx = { d, byId, a, openFile };
   const done = d.tasks.filter((t) => t.status === "done").length;
   const waiting = d.decisions.some((x) => !x.approved_by);
@@ -164,6 +224,7 @@ export function App(d: AppData) {
           <button className="ghost" style={{ color: "var(--muted)" }} onClick={() => setPalette(true)} title="Quick actions (N or ⌘K)">Quick actions</button>
           <div className="me">
             <Dot color={d.me.color} />{d.me.name}
+            <button className="linkbtn" onClick={copyRejoin} disabled={copyingDevice}>Copy rejoin link</button>
             <form action={A.leaveDevice}>
               <input type="hidden" name="slug" value={d.slug} />
               <button className="linkbtn" title="Not you? Switch person on this device">Switch</button>
@@ -171,6 +232,12 @@ export function App(d: AppData) {
           </div>
         </div>
       </header>
+      {deviceLink && <div className="hint">
+        <label className="label">Private rejoin link (one use, 10 minutes)
+          <input className="input" readOnly value={deviceLink} onFocus={(event) => event.currentTarget.select()} />
+        </label>
+        <button className="linkbtn" onClick={() => setDeviceLink(null)}>Dismiss</button>
+      </div>}
 
       <div className="body">
         <main>

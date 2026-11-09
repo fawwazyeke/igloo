@@ -43,13 +43,13 @@ const live = (db: DB, me: Member) => {
 };
 const gone: Result = { error: "You are no longer in this group" };
 const publicFile = ({ data: _data, ...metadata }: StoredFile): ProjectFile => metadata;
+const hashToken = (value: string) => createHash("sha256").update(value).digest("hex");
 
 // ---------- Rate limits ----------
 const hits = new Map<string, number[]>();
 export async function rateLimit(key: string, max: number, windowMs: number) {
   if (process.env.DATABASE_URL) {
-    const digest = createHash("sha256").update(key).digest("hex");
-    return recordRateHit(digest, max, windowMs);
+    return recordRateHit(hashToken(key), max, windowMs);
   }
   const t = Date.now();
   const list = (hits.get(key) ?? []).filter((x) => t - x < windowMs);
@@ -119,6 +119,33 @@ export async function latestActivityId(slug: string) {
   const db = loadFile();
   const p = db.projects.find((x) => x.slug === slug);
   return p ? db.activity.findLast((a) => a.project_id === p.id)?.id ?? 0 : 0;
+}
+
+export async function createDeviceCode(me: Member): Promise<Result & { code?: string }> {
+  const code = token();
+  return tx({ projectId: me.project_id }, (db) => {
+    const member = live(db, me);
+    if (!member) return gone;
+    member.device_code_hash = hashToken(code);
+    member.device_expires_at = new Date(Date.now() + 10 * 60_000).toISOString();
+    return { code };
+  });
+}
+
+export async function redeemDeviceCode(slug: string, code: string) {
+  if (!isToken(code)) return null;
+  const hash = hashToken(code);
+  return tx({ slug }, (db) => {
+    const project = db.projects.find((entry) => entry.slug === slug);
+    const member = project && db.members.find((entry) =>
+      entry.project_id === project.id && entry.device_code_hash === hash &&
+      !!entry.device_expires_at && Date.parse(entry.device_expires_at) > Date.now());
+    if (!member) return null;
+    member.device_code_hash = null;
+    member.device_expires_at = null;
+    member.last_seen_at = now();
+    return member.session_token;
+  });
 }
 
 // ---------- Create and join ----------

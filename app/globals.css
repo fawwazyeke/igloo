@@ -55,6 +55,7 @@ select.hand { border: 1px solid var(--border); border-radius: 8px; background: #
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
 .hint { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
 .code-input { text-align: center; font-size: 18px; letter-spacing: .4em; }
+.rejoin-button { margin-top: 10px; }
 
 /* Group page */
 .app { display: flex; flex-direction: column; min-height: 100dvh; }

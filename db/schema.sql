@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS members (
   session_token text NOT NULL UNIQUE CHECK (session_token ~ '^[0-9a-f]{64}$')
 );
 CREATE UNIQUE INDEX IF NOT EXISTS members_project_name ON members (project_id, lower(name));
+ALTER TABLE members ADD COLUMN IF NOT EXISTS device_code_hash text;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS device_expires_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS tasks (
   id uuid PRIMARY KEY,

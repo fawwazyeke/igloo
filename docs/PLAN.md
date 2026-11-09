@@ -97,7 +97,7 @@ This repo is built from scratch. Each step below has a check, and each step is i
 
 1. **Use on another device:**
    - A one-time code (random, 10 minute expiry) stored on the member. Never reuse the agent token for this.
-   - The link `/p/<slug>?device=<code>` sets a new session cookie, and works once.
+   - The link `/p/<slug>?rejoin=1#device=<code>` prompts for confirmation, then sets a session cookie on the receiving host. The fragment keeps the code out of the initial HTTP request.
    - It's rate limited like joins.
 2. **Edit project** (name, brief and due date). Any member can, and it's logged.
 3. **Leave the group:** unclaims unfinished tasks, and it's logged.
