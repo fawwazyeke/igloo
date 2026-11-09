@@ -13,9 +13,11 @@ function snippetOf(text: string) {
 }
 
 async function renderPdf(data: ArrayBuffer, signal: AbortSignal) {
-  const pdf = await import("pdfjs-dist");
+  // The legacy build carries polyfills. The modern one needs features only the newest browsers have
+  // (Map.getOrInsertComputed, Math.sumPrecise…), and without them page 1 silently fails to draw.
+  const pdf = await import("pdfjs-dist/legacy/build/pdf.mjs");
   signal.throwIfAborted();
-  pdf.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+  pdf.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
   const loading = pdf.getDocument({
     data, enableXfa: false, useWasm: false, maxImageSize: 8_000_000, canvasMaxAreaInBytes: 16_000_000,
   });
